@@ -1,13 +1,11 @@
-# 🌐 CultureMatch
+# 🌐 Values Sync
+An app to assess company culture cues using website content or LinkedIn URLs. Designed to help job seekers discover cultural alignment with organizations
+Features
 
-A lightweight app to assess company culture cues using website content or LinkedIn URLs. Designed to help job seekers discover cultural alignment with organizations — no Clearbit required!
-
-## 🚀 Features
-
-- 🔍 Enter a company domain or LinkedIn URL
-- 🧠 Enriches with GPT-4 to extract cultural tags (DEI, climate, hybrid, equity, etc.)
-- 🔗 LinkedIn fallback using Google Search for recent posts
-- 🎨 Simple UI with Tailwind-ready styling
+- Enter a company domain or LinkedIn URL
+- Enriches with GPT-4 to extract cultural tags (gender, climate, hybrid, equity, inclusionetc.etc)
+- LinkedIn fallback using Google Search for recent posts
+- Simple UI with Tailwind-ready styling
 
 ## 📦 Stack
 
