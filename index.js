@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 export default function Home() {
@@ -7,16 +7,41 @@ export default function Home() {
   const [company, setCompany] = useState(null);
   const [error, setError] = useState(null);
 
+  const [preferences, setPreferences] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('userPreferences');
+      return saved ? JSON.parse(saved) : {
+        flexibility: '',
+        management: '',
+        inclusion: ''
+      };
+    }
+    return {
+      flexibility: '',
+      management: '',
+      inclusion: ''
+    };
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('userPreferences', JSON.stringify(preferences));
+    }
+  }, [preferences]);
+
   const handleEnrich = async () => {
     if (!domain.trim()) {
       setError('Please enter a domain');
       return;
     }
-    
+
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get(`/api/enrich?domain=${encodeURIComponent(domain)}`);
+      const res = await axios.post('/api/enrich', {
+        domain,
+        preferences
+      });
       setCompany(res.data);
     } catch (err) {
       console.error(err);
@@ -53,7 +78,17 @@ export default function Home() {
       borderRadius: '4px',
       border: 'none',
       cursor: loading ? 'not-allowed' : 'pointer',
-      fontSize: '14px'
+      fontSize: '14px',
+      marginTop: '8px'
+    },
+    resetButton: {
+      backgroundColor: '#e11d48',
+      color: 'white',
+      padding: '8px 16px',
+      borderRadius: '4px',
+      border: 'none',
+      fontSize: '14px',
+      marginTop: '8px'
     },
     error: {
       color: '#dc2626',
@@ -115,12 +150,57 @@ export default function Home() {
         onChange={(e) => setDomain(e.target.value)}
         onKeyPress={(e) => e.key === 'Enter' && handleEnrich()}
       />
+
+      {/* Survey Inputs */}
+      <select
+        style={styles.input}
+        value={preferences.flexibility}
+        onChange={e => setPreferences({ ...preferences, flexibility: e.target.value })}
+      >
+        <option value="">Flexibility preference</option>
+        <option value="remote">Remote</option>
+        <option value="hybrid">Hybrid</option>
+        <option value="flexible-hours">Flexible hours</option>
+      </select>
+
+      <select
+        style={styles.input}
+        value={preferences.management}
+        onChange={e => setPreferences({ ...preferences, management: e.target.value })}
+      >
+        <option value="">Management style</option>
+        <option value="flat">Flat</option>
+        <option value="hierarchical">Hierarchical</option>
+      </select>
+
+      <select
+        style={styles.input}
+        value={preferences.inclusion}
+        onChange={e => setPreferences({ ...preferences, inclusion: e.target.value })}
+      >
+        <option value="">Inclusion focus</option>
+        <option value="gender">Gender</option>
+        <option value="caste">Caste</option>
+        <option value="race">Race</option>
+        <option value="religion">Religion</option>
+      </select>
+
       <button
         style={styles.button}
         onClick={handleEnrich}
         disabled={loading}
       >
         {loading ? 'Analyzing...' : 'Analyze Culture'}
+      </button>
+
+      <button
+        style={styles.resetButton}
+        onClick={() => {
+          setPreferences({ flexibility: '', management: '', inclusion: '' });
+          localStorage.removeItem('userPreferences');
+        }}
+      >
+        Reset Preferences
       </button>
 
       {error && <p style={styles.error}>{error}</p>}
@@ -131,7 +211,7 @@ export default function Home() {
           <p style={styles.summary}>
             {company.summary?.summary || company.summary}
           </p>
-          
+
           {company.summary?.tags && company.summary.tags.length > 0 && (
             <div style={styles.tagsContainer}>
               {company.summary.tags.map((tag, index) => (
@@ -141,7 +221,18 @@ export default function Home() {
               ))}
             </div>
           )}
-          
+
+          {company.match && (
+            <div style={{ marginTop: '16px' }}>
+              <strong>🔎 Culture Match Score: {company.match.score}/3</strong>
+              <ul style={{ paddingLeft: '16px' }}>
+                {company.match.reasons.map((reason, idx) => (
+                  <li key={idx}>{reason}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div>
             <a
               href={`https://www.google.com/search?q=site:linkedin.com/company+${encodeURIComponent(
