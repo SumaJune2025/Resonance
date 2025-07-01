@@ -77,6 +77,35 @@ export default function Home() {
   };
 
   /**
+   * Resets all user preferences to their initial empty state and clears local storage.
+   */
+  const handleResetPreferences = () => {
+    const initialPreferences = {
+      flexibility: {
+        workFromHome: '',
+        flexibleHours: '',
+        remoteLocation: ''
+      },
+      management: {
+        structure: '',
+        decisionMaking: '',
+        autonomy: ''
+      },
+      inclusion: {
+        womenLeadership: '',
+        diversityRepresentation: '',
+        inclusivePolicies: ''
+      }
+    };
+    setPreferences(initialPreferences);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('userPreferences');
+    }
+    setError(null); // Clear any previous errors
+    setCompany(null); // Clear previous company results
+  };
+
+  /**
    * Handles the enrichment process, sending the domain and preferences to the API.
    */
   const handleEnrich = async () => {
@@ -203,6 +232,20 @@ export default function Home() {
       fontSize: '14px',
       fontWeight: '500',
       marginBottom: '16px',
+      transition: 'background-color 0.2s',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    },
+    resetButton: {
+      backgroundColor: '#ef4444', // Red color for reset
+      color: 'white',
+      padding: '10px 20px',
+      borderRadius: '6px',
+      border: 'none',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '500',
+      marginBottom: '16px',
+      marginLeft: '10px', // Add some margin
       transition: 'background-color 0.2s',
       boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
     },
@@ -385,7 +428,7 @@ export default function Home() {
     <div style={styles.preferencesContainer}>
       <h3 style={styles.categoryTitle}>📋 Your Work Preferences</h3>
       <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '20px' }}>
-        Help us match you with companies that align with your values and work style preferences.
+        Please rate the importance of the following cultural aspects to you. Your selections will help us find companies that best align with your values.
       </p>
 
       {/* Work Flexibility Section */}
@@ -621,6 +664,16 @@ export default function Home() {
           ))}
         </div>
       </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+        <button
+          style={styles.resetButton}
+          onClick={handleResetPreferences}
+          onMouseEnter={(e) => e.target.style.backgroundColor = '#dc2626'}
+          onMouseLeave={(e) => e.target.style.backgroundColor = '#ef4444'}
+        >
+          Reset Preferences
+        </button>
+      </div>
     </div>
   );
 
@@ -672,7 +725,7 @@ export default function Home() {
         <div style={styles.result}>
           <h2 style={styles.resultTitle}>{company.domain}</h2>
           
-          {/* Display Match Score if available */}
+          {/* Display Match Score at the top of the company results */}
           {company.match && company.match.score !== undefined && ( // Check for undefined to allow 0 score
             <div style={{
               ...styles.matchScore,
