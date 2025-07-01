@@ -416,11 +416,11 @@ export default function Home() {
                  .replace(/linkedin\.com\/company\//g, '');
   };
 
-  // Function to determine color scheme for match score based on its value
+  // Function to determine color scheme for match score based on its value (now for percentage)
   const getMatchScoreColor = (score) => {
-    if (score >= 4) return { bg: '#f0fdf4', border: '#22c55e', text: '#15803d' }; // Green for high score
-    if (score >= 2) return { bg: '#fffbeb', border: '#f59e0b', text: '#d97706' }; // Orange for medium score
-    return { bg: '#fef2f2', border: '#ef4444', text: '#dc2626' }; // Red for low score
+    if (score >= 80) return { bg: '#f0fdf4', border: '#22c55e', text: '#15803d' }; // Green for high score (80-100%)
+    if (score >= 50) return { bg: '#fffbeb', border: '#f59e0b', text: '#d97706' }; // Orange for medium score (50-79%)
+    return { bg: '#fef2f2', border: '#ef4444', text: '#dc2626' }; // Red for low score (0-49%)
   };
 
   // Component to render the preferences survey form
@@ -684,40 +684,6 @@ export default function Home() {
         Discover company culture and values alignment through intelligent domain analysis
       </p>
 
-      <div style={styles.inputContainer}>
-        <input
-          style={styles.input}
-          placeholder="Enter company domain (e.g., acme.com or linkedin.com/company/acme)"
-          value={domain}
-          onChange={(e) => setDomain(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleEnrich()}
-          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-          onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-        />
-        
-        {/* Toggle button for showing/hiding preferences */}
-        <button
-          style={{...styles.toggleButton, marginBottom: showPreferences ? '16px' : '0'}}
-          onClick={() => setShowPreferences(!showPreferences)}
-          onMouseEnter={(e) => e.target.style.backgroundColor = '#2563eb'}
-          onMouseLeave={(e) => e.target.style.backgroundColor = '#3b82f6'}
-        >
-          {showPreferences ? '🔼 Hide Preferences Survey' : '🔽 Show Preferences Survey (Optional)'}
-        </button>
-
-        <button
-          style={styles.button}
-          onClick={handleEnrich}
-          disabled={loading}
-          onMouseEnter={(e) => !loading && (e.target.style.backgroundColor = '#111827')}
-          onMouseLeave={(e) => !loading && (e.target.style.backgroundColor = '#1f2937')}
-        >
-          {loading ? 'Analyzing Culture...' : 'Analyze Company Culture'}
-        </button>
-
-        {error && <div style={styles.error}>{error}</div>}
-      </div>
-
       {/* Display Match Score and Company Details at the top, conditional on company data */}
       {company && (
         <div style={styles.result}>
@@ -736,10 +702,11 @@ export default function Home() {
                 🎯 Culture Match Score
               </div>
               <div style={{
+                // Display percentage here
                 ...styles.matchScoreValue,
                 color: getMatchScoreColor(company.match.score).text
               }}>
-                {company.match.score}/5
+                {company.match.score}%
               </div>
               {company.match.reasons && company.match.reasons.length > 0 && (
                 <div style={{
@@ -857,6 +824,31 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* Input container is now above the survey */}
+      <div style={styles.inputContainer}>
+        <input
+          style={styles.input}
+          placeholder="Enter company domain (e.g., acme.com or linkedin.com/company/acme)"
+          value={domain}
+          onChange={(e) => setDomain(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleEnrich()}
+          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+          onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+        />
+        
+        <button
+          style={styles.button}
+          onClick={handleEnrich}
+          disabled={loading}
+          onMouseEnter={(e) => !loading && (e.target.style.backgroundColor = '#111827')}
+          onMouseLeave={(e) => !loading && (e.target.style.backgroundColor = '#1f2937')}
+        >
+          {loading ? 'Analyzing Culture...' : 'Analyze Company Culture'}
+        </button>
+
+        {error && <div style={styles.error}>{error}</div>}
+      </div>
 
       {/* Render preferences form only if showPreferences is true (now at the bottom) */}
       {showPreferences && renderPreferencesForm()}
