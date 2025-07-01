@@ -352,6 +352,16 @@ export default function Home() {
       padding: '8px',
       backgroundColor: '#f9fafb',
       borderRadius: '4px'
+    },
+    disclaimer: {
+      fontSize: '12px',
+      color: '#6b7280',
+      textAlign: 'center',
+      marginTop: '30px',
+      padding: '10px',
+      backgroundColor: '#e0e7ff', // Light blue background for emphasis
+      borderRadius: '8px',
+      border: '1px solid #93c5fd'
     }
   };
 
@@ -796,6 +806,11 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* Disclaimer Section */}
+      <div style={styles.disclaimer}>
+        <strong>Disclaimer:</strong> Company and organization-related data, including cultural insights and tags, are based on publicly available reviews, company web pages, and social media pages. This analysis is simulated and intended for informational purposes only, and may not reflect the full complexity of a company's culture. For more detailed and accurate insights, direct research and engagement with the company are recommended.
+      </div>
     </div>
   );
 }
