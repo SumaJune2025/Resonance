@@ -6,7 +6,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [company, setCompany] = useState(null);
   const [error, setError] = useState(null);
-  const [showPreferences, setShowPreferences] = useState(false);
+  // Set showPreferences to true by default so the survey is visible immediately
+  const [showPreferences, setShowPreferences] = useState(true); 
   
   // User preferences state, initialized with empty strings for each option
   // Initial state will now be loaded from local storage
