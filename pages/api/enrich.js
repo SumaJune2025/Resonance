@@ -59,46 +59,57 @@ function computeMatch(companyTags, userPreferences) {
     'fully-remote-company': 'flexibility',
     'hybrid-work-model': 'flexibility',
     'traditional-office-work': 'flexibility', 
-    'inflexible-hours': 'flexibility', // Added for more variability
+    'inflexible-hours': 'flexibility', 
     
     'flat-structure': 'management',
     'hierarchical-structure': 'management',
     'collaborative-decision-making': 'management',
     'high-autonomy': 'management',
     'micro-managed': 'management', 
-    'top-down-decisions': 'management', // Added for more variability
+    'top-down-decisions': 'management', 
     
     'strong-women-leadership': 'inclusion',
     'diverse-representation': 'inclusion',
     'inclusive-policies-active': 'inclusion',
     'traditional-inclusion-approach': 'inclusion', 
-    'limited-diversity-focus': 'inclusion', // Added for more variability
-    'lgbtq-inclusive': 'inclusion', // New tag
-    'religious-holiday-friendly': 'inclusion', // New tag
-    'on-site-creche': 'inclusion', // New tag
-    'generous-maternity-leave': 'inclusion', // New tag
-    'paternity-leave-offered': 'inclusion', // New tag
+    'limited-diversity-focus': 'inclusion', 
+    'lgbtq-inclusive': 'inclusion', 
+    'religious-holiday-friendly': 'inclusion', 
+    'on-site-creche': 'inclusion', 
+    'generous-maternity-leave': 'inclusion', 
+    'paternity-leave-offered': 'inclusion', 
   };
+
+  // Keep track of categories for which we've already added the user's preference score
+  const matchedCategories = new Set();
 
   // Iterate through company tags and check for matches with user preferences
   companyTags.forEach(tag => {
     const category = preferenceMapping[tag]; // e.g., 'flexibility'
     if (category) {
-      // If the company tag matches a preference category, add to the score.
-      // The score is directly proportional to the user's preference level (1-5) for that category.
-      if (userPreferences[category] && userPreferences[category] > 0) {
+      // Only add the preference score if this category hasn't been matched yet
+      if (userPreferences[category] && userPreferences[category] > 0 && !matchedCategories.has(category)) {
         score += userPreferences[category]; // Add the preference score directly
+        matchedCategories.add(category); // Mark this category as matched
         reasons.push(`Company tag '${tag}' aligns with your preference for ${category}.`);
+      } else if (userPreferences[category] && userPreferences[category] > 0 && matchedCategories.has(category)) {
+        // If the category is already matched, still add the tag to reasons for completeness
+        reasons.push(`Company tag '${tag}' also aligns with your preference for ${category}.`);
       }
     }
   });
 
   // Calculate the maximum possible score based on the number of categories and max preference score (5).
-  // This ensures the percentage is accurate even if not all categories have preferences set.
+  // This ensures the percentage is accurate.
   const maxPossibleScore = Object.keys(userPreferences).length * 5; 
   
   // Calculate the percentage score, rounded to the nearest integer
-  const percentageScore = maxPossibleScore > 0 ? Math.round((score / maxPossibleScore) * 100) : 0;
+  let percentageScore = maxPossibleScore > 0 ? Math.round((score / maxPossibleScore) * 100) : 0;
+
+  // Ensure the percentage score does not exceed 100%
+  if (percentageScore > 100) {
+    percentageScore = 100;
+  }
 
   return { score: percentageScore, reasons };
 }
