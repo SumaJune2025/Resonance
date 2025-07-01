@@ -58,18 +58,26 @@ function computeMatch(companyTags, userPreferences) {
     'flexible-hours-offered': 'flexibility',
     'fully-remote-company': 'flexibility',
     'hybrid-work-model': 'flexibility',
-    'traditional-office-work': 'flexibility', // New tag for non-flexible
+    'traditional-office-work': 'flexibility', 
+    'inflexible-hours': 'flexibility', // Added for more variability
     
     'flat-structure': 'management',
     'hierarchical-structure': 'management',
     'collaborative-decision-making': 'management',
     'high-autonomy': 'management',
-    'micro-managed': 'management', // New tag for less autonomy
+    'micro-managed': 'management', 
+    'top-down-decisions': 'management', // Added for more variability
     
     'strong-women-leadership': 'inclusion',
     'diverse-representation': 'inclusion',
     'inclusive-policies-active': 'inclusion',
-    'traditional-inclusion-approach': 'inclusion', // New tag for less emphasis on inclusion
+    'traditional-inclusion-approach': 'inclusion', 
+    'limited-diversity-focus': 'inclusion', // Added for more variability
+    'lgbtq-inclusive': 'inclusion', // New tag
+    'religious-holiday-friendly': 'inclusion', // New tag
+    'on-site-creche': 'inclusion', // New tag
+    'generous-maternity-leave': 'inclusion', // New tag
+    'paternity-leave-offered': 'inclusion', // New tag
   };
 
   // Iterate through company tags and check for matches with user preferences
@@ -153,6 +161,7 @@ async function simulateCompanyAnalysis(domain) {
  */
 async function getEnhancedCulturalAnalysis(domain) {
   const company = domain.split('.')[0].toLowerCase();
+  const domainLower = domain.toLowerCase(); // Use domainLower for broader checks
   
   const insights = {
     flexibility: null,
@@ -165,34 +174,75 @@ async function getEnhancedCulturalAnalysis(domain) {
   const tags = [];
 
   // --- Flexibility Analysis ---
-  if (company.includes('flex') || company.includes('remote') || company.includes('work') || domain.includes('hybrid')) {
+  if (domainLower.includes('flex') || domainLower.includes('remote') || domainLower.includes('hybrid') || domainLower.includes('wfh')) {
     insights.flexibility = 'high';
-    tags.push('work-from-home-friendly', 'flexible-hours-offered', 'hybrid-work-model');
+    tags.push('work-from-home-friendly', 'flexible-hours-offered', 'hybrid-work-model', 'fully-remote-company');
+  } else if (domainLower.includes('office') || domainLower.includes('corp')) {
+    insights.flexibility = 'low';
+    tags.push('traditional-office-work', 'inflexible-hours');
   } else {
-    // Default tag if no specific flexible keywords are found
-    tags.push('traditional-office-work');
+    // Introduce some randomness for domains without clear keywords
+    const rand = Math.random();
+    if (rand < 0.3) {
+      tags.push('work-from-home-friendly');
+    } else if (rand < 0.6) {
+      tags.push('hybrid-work-model');
+    } else {
+      tags.push('traditional-office-work');
+    }
   }
 
   // --- Management Analysis ---
-  if (company.includes('team') || company.includes('collab') || company.includes('together') || domain.includes('agile')) {
+  if (domainLower.includes('team') || domainLower.includes('collab') || domainLower.includes('agile') || domainLower.includes('open')) {
     insights.management = 'collaborative';
     tags.push('collaborative-decision-making', 'flat-structure', 'high-autonomy');
-  } else if (company.includes('corp') || company.includes('group') || company.includes('inc')) {
+  } else if (domainLower.includes('inc') || domainLower.includes('group') || domainLower.includes('solutions')) {
     insights.management = 'structured';
-    tags.push('hierarchical-structure', 'micro-managed'); // Add a less preferred tag for structured
+    tags.push('hierarchical-structure', 'top-down-decisions', 'micro-managed');
   } else {
-    // Default tag if no strong management style keywords
-    tags.push('high-autonomy'); // Default to a generally positive management tag
+    // Introduce some randomness for domains without clear keywords
+    const rand = Math.random();
+    if (rand < 0.4) {
+      tags.push('flat-structure', 'high-autonomy');
+    } else {
+      tags.push('hierarchical-structure', 'top-down-decisions');
+    }
   }
 
   // --- Inclusion Analysis ---
-  if (company.includes('diverse') || company.includes('equal') || company.includes('inclusive') || domain.includes('equity')) {
+  if (domainLower.includes('diverse') || domainLower.includes('equal') || domainLower.includes('inclusive') || domainLower.includes('equity')) {
     insights.inclusion = 'high';
     tags.push('diverse-representation', 'inclusive-policies-active', 'strong-women-leadership');
+  } else if (domainLower.includes('traditional') || domainLower.includes('heritage')) {
+    insights.inclusion = 'low';
+    tags.push('traditional-inclusion-approach', 'limited-diversity-focus');
   } else {
-    // Default tag if no strong inclusion keywords
-    tags.push('traditional-inclusion-approach');
+    // Introduce some randomness for domains without clear keywords
+    const rand = Math.random();
+    if (rand < 0.5) {
+      tags.push('diverse-representation');
+    } else {
+      tags.push('traditional-inclusion-approach');
+    }
   }
+
+  // --- New Inclusion Tags based on keywords ---
+  if (domainLower.includes('queer') || domainLower.includes('lgbtq') || domainLower.includes('pride')) {
+    tags.push('lgbtq-inclusive');
+  }
+  if (domainLower.includes('ramadan') || domainLower.includes('diwali') || domainLower.includes('holiday-friendly') || domainLower.includes('religious-observance')) {
+    tags.push('religious-holiday-friendly');
+  }
+  if (domainLower.includes('creche') || domainLower.includes('daycare') || domainLower.includes('childcare')) {
+    tags.push('on-site-creche');
+  }
+  if (domainLower.includes('maternity') || domainLower.includes('parental-leave') || domainLower.includes('family-leave')) {
+    tags.push('generous-maternity-leave');
+  }
+  if (domainLower.includes('paternity') || domainLower.includes('parental-leave') || domainLower.includes('family-leave')) {
+    tags.push('paternity-leave-offered');
+  }
+
 
   // Add some general positive cultural indicators (these are always added)
   tags.push('professional-growth', 'learning-culture', 'team-collaboration');
