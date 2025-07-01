@@ -3,6 +3,7 @@
 import axios from 'axios';
 
 export default async function handler(req, res) {
+  // Extract domain and preferences from the request body for POST, or query for GET
   const { domain, preferences } = req.method === 'POST' ? req.body : req.query;
 
   if (!domain) {
@@ -16,7 +17,9 @@ export default async function handler(req, res) {
     // Get enhanced cultural analysis (without external APIs)
     const culturalInsights = await getEnhancedCulturalAnalysis(cleanDomain);
 
-    const match = computeMatch([...summary.tags, ...culturalInsights.tags], preferences);
+    // Compute the match score based on company tags and user preferences
+    const allCompanyTags = [...summary.tags, ...culturalInsights.tags];
+    const match = computeMatch(allCompanyTags, preferences);
 
     return res.status(200).json({
       domain: cleanDomain,
@@ -30,27 +33,68 @@ export default async function handler(req, res) {
   }
 }
 
-function computeMatch(tags, preferences) {
+/**
+ * Computes a match score between company tags and user preferences.
+ * @param {string[]} companyTags - An array of cultural tags associated with the company.
+ * @param {object} userPreferences - An object containing user's cultural preferences.
+ * Example:
+ * {
+ * flexibility: 4, // Score from 1-5
+ * management: 3,
+ * inclusion: 5
+ * }
+ * @returns {object} - An object containing the match score and reasons.
+ */
+function computeMatch(companyTags, userPreferences) {
   let score = 0;
   const reasons = [];
-  if (!preferences) return { score, reasons };
+  // If no preferences are provided, return a score of 0
+  if (!userPreferences) return { score: 0, reasons: [] };
 
-  if (preferences.flexibility && tags.includes(preferences.flexibility)) {
-    score++;
-    reasons.push(`Matches flexibility: ${preferences.flexibility}`);
-  }
-  if (preferences.management && tags.includes(preferences.management)) {
-    score++;
-    reasons.push(`Matches management: ${preferences.management}`);
-  }
-  if (preferences.inclusion && tags.includes(preferences.inclusion)) {
-    score++;
-    reasons.push(`Matches inclusion: ${preferences.inclusion}`);
-  }
+  // Define a mapping for preference values to influence the score
+  // This is a simplified mapping; a more complex one could use NLP similarity
+  const preferenceMapping = {
+    'work-from-home': 'flexibility',
+    'flexible-hours': 'flexibility',
+    'remote-friendly': 'flexibility',
+    'flat-structure': 'management',
+    'hierarchical-structure': 'management',
+    'collaborative-decision': 'management',
+    'autonomy': 'management',
+    'women-leadership': 'inclusion',
+    'diversity-representation': 'inclusion',
+    'inclusive-policies': 'inclusion',
+  };
 
-  return { score, reasons };
+  // Iterate through company tags and check for matches with user preferences
+  companyTags.forEach(tag => {
+    const category = preferenceMapping[tag];
+    if (category) {
+      // If the company tag matches a preference category, add to the score
+      // The score is directly proportional to the user's preference level (1-5)
+      if (userPreferences[category] && userPreferences[category] > 0) {
+        score += userPreferences[category]; // Add the preference score directly
+        reasons.push(`Company tag '${tag}' aligns with your preference for ${category}.`);
+      }
+    }
+  });
+
+  // Normalize the score to a 0-5 scale.
+  // Assuming a maximum possible score based on the number of categories and max preference score (5).
+  // For simplicity, let's assume 3 main categories (flexibility, management, inclusion)
+  // Max possible score = 3 categories * 5 (max preference score) = 15
+  const maxPossibleScore = Object.keys(userPreferences).length * 5; // Dynamically calculate max score
+  const normalizedScore = maxPossibleScore > 0 ? Math.round((score / maxPossibleScore) * 5) : 0;
+
+  return { score: normalizedScore, reasons };
 }
 
+/**
+ * Simulates a basic company analysis based on the domain name.
+ * This function provides general tags and a summary.
+ * @param {string} domain - The company domain.
+ * @returns {Promise<object>} - A promise resolving to an object with summary and tags.
+ */
 async function simulateCompanyAnalysis(domain) {
   const domainLower = domain.toLowerCase();
   let tags = ['professional'];
@@ -94,19 +138,16 @@ async function simulateCompanyAnalysis(domain) {
   return { summary, tags };
 }
 
+/**
+ * Provides enhanced cultural analysis based on company name patterns.
+ * This simulates deeper insights that would typically come from NLP or dedicated APIs.
+ * @param {string} domain - The company domain.
+ * @returns {Promise<object>} - A promise resolving to an object with insights, tags, and a note.
+ */
 async function getEnhancedCulturalAnalysis(domain) {
   const company = domain.split('.')[0].toLowerCase();
   
   // Enhanced cultural analysis based on company name patterns and common industry insights
-  const culturalPatterns = {
-    flexibility: ['remote', 'hybrid', 'flex', 'work-life', 'balance'],
-    management: ['flat', 'hierarchical', 'collaborative', 'autonomous', 'micromanage'],
-    inclusion: ['diverse', 'inclusive', 'equity', 'belonging', 'equal'],
-    growth: ['learning', 'development', 'career', 'advancement', 'mentorship'],
-    innovation: ['creative', 'innovative', 'cutting-edge', 'research', 'experiment'],
-    workEnvironment: ['open-office', 'collaborative', 'quiet', 'dynamic', 'structured']
-  };
-
   const insights = {
     flexibility: null,
     management: null,
@@ -117,20 +158,30 @@ async function getEnhancedCulturalAnalysis(domain) {
 
   const tags = [];
 
-  // Analyze based on domain patterns
-  if (company.includes('flex') || company.includes('remote') || company.includes('work')) {
+  // Analyze based on domain patterns for specific cultural aspects
+  if (company.includes('flex') || company.includes('remote') || company.includes('work') || domain.includes('hybrid')) {
     insights.flexibility = 'high';
-    tags.push('flexible-work', 'work-life-balance');
+    tags.push('flexible-work', 'work-life-balance', 'work-from-home', 'flexible-hours', 'remote-friendly');
+  } else {
+    // Default or opposite for demonstration if not explicitly flexible
+    tags.push('office-centric');
   }
 
-  if (company.includes('team') || company.includes('collab') || company.includes('together')) {
+  if (company.includes('team') || company.includes('collab') || company.includes('together') || domain.includes('agile')) {
     insights.management = 'collaborative';
-    tags.push('collaborative', 'team-oriented');
+    tags.push('collaborative-decision', 'flat-structure', 'team-oriented');
+  } else if (company.includes('corp') || company.includes('group')) {
+    insights.management = 'structured';
+    tags.push('hierarchical-structure');
+  } else {
+    tags.push('autonomy'); // Default to some autonomy if no strong signal
   }
 
-  if (company.includes('diverse') || company.includes('equal') || company.includes('inclusive')) {
+  if (company.includes('diverse') || company.includes('equal') || company.includes('inclusive') || domain.includes('equity')) {
     insights.inclusion = 'high';
-    tags.push('diversity', 'inclusion', 'equity');
+    tags.push('diversity-representation', 'inclusion', 'equity', 'women-leadership', 'inclusive-policies');
+  } else {
+    tags.push('traditional-culture');
   }
 
   if (company.includes('grow') || company.includes('learn') || company.includes('dev')) {
@@ -150,6 +201,7 @@ async function getEnhancedCulturalAnalysis(domain) {
 }
 
 // Optional: Add a simple web scraping function (if you want to try fetching basic company info)
+// This function is not directly used in the main flow but kept for reference.
 async function tryBasicWebScraping(domain) {
   try {
     const response = await axios.get(`https://${domain}`, {
