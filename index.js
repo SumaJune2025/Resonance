@@ -160,7 +160,7 @@ export default function Home() {
         <option value="">Flexibility preference</option>
         <option value="remote">Remote</option>
         <option value="hybrid">Hybrid</option>
-        <option value="flexible-hours">Flexible hours</option>
+        <option value="flexibility">Flexible hours</option>
       </select>
 
       <select
@@ -183,6 +183,7 @@ export default function Home() {
         <option value="caste">Caste</option>
         <option value="race">Race</option>
         <option value="religion">Religion</option>
+        <option value="inclusion">General Inclusion</option>
       </select>
 
       <button
@@ -228,6 +229,17 @@ export default function Home() {
               <ul style={{ paddingLeft: '16px' }}>
                 {company.match.reasons.map((reason, idx) => (
                   <li key={idx}>{reason}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {company?.glassdoor && company.glassdoor.raw && (
+            <div style={{ marginTop: '16px' }}>
+              <h3>🧠 Glassdoor Culture Insights</h3>
+              <ul style={{ paddingLeft: '16px' }}>
+                {Object.entries(company.glassdoor.raw).map(([key, value]) => (
+                  <li key={key}><strong>{key}:</strong> {String(value)}</li>
                 ))}
               </ul>
             </div>
