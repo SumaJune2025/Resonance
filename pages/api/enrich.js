@@ -85,13 +85,14 @@ function computeMatch(companyTags, userPreferences) {
     }
   });
 
-  // Normalize the score to a 0-5 scale.
-  // Max possible score = number of preference categories * max preference score (5).
-  // We are assuming 3 main categories (flexibility, management, inclusion) for normalization.
+  // Calculate the maximum possible score based on the number of categories and max preference score (5).
+  // This ensures the percentage is accurate even if not all categories have preferences set.
   const maxPossibleScore = Object.keys(userPreferences).length * 5; 
-  const normalizedScore = maxPossibleScore > 0 ? Math.round((score / maxPossibleScore) * 5) : 0;
+  
+  // Calculate the percentage score, rounded to the nearest integer
+  const percentageScore = maxPossibleScore > 0 ? Math.round((score / maxPossibleScore) * 100) : 0;
 
-  return { score: normalizedScore, reasons };
+  return { score: percentageScore, reasons };
 }
 
 /**
