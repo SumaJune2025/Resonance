@@ -718,14 +718,11 @@ export default function Home() {
         {error && <div style={styles.error}>{error}</div>}
       </div>
 
-      {/* Render preferences form only if showPreferences is true */}
-      {showPreferences && renderPreferencesForm()}
-
+      {/* Display Match Score and Company Details at the top, conditional on company data */}
       {company && (
         <div style={styles.result}>
           <h2 style={styles.resultTitle}>{company.domain}</h2>
           
-          {/* Display Match Score at the top of the company results */}
           {company.match && company.match.score !== undefined && ( // Check for undefined to allow 0 score
             <div style={{
               ...styles.matchScore,
@@ -860,6 +857,9 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* Render preferences form only if showPreferences is true (now at the bottom) */}
+      {showPreferences && renderPreferencesForm()}
 
       {/* Disclaimer Section */}
       <div style={styles.disclaimer}>
