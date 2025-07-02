@@ -6,17 +6,20 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [company, setCompany] = useState(null);
   const [error, setError] = useState(null);
-  // Renamed for clarity: user might want to hide it after setting.
-  const [isSurveyVisible, setIsSurveyVisible] = useState(false);
+
+  // New state to manage the current step: 'preferences' or 'analysis'
+  const [currentStep, setCurrentStep] = useState('preferences');
 
   const [preferences, setPreferences] = useState(() => {
     if (typeof window !== 'undefined') {
       const savedPreferences = localStorage.getItem('userPreferences');
-      // If no saved preferences, show the survey by default
-      if (!savedPreferences) {
-        setIsSurveyVisible(true);
+      if (savedPreferences) {
+        // If preferences exist, start at the analysis step
+        setCurrentStep('analysis');
+        return JSON.parse(savedPreferences);
       }
-      return savedPreferences ? JSON.parse(savedPreferences) : {
+      // If no saved preferences, stay at the preferences step
+      return {
         flexibility: { workFromHome: '', flexibleHours: '', remoteLocation: '' },
         management: { structure: '', decisionMaking: '', autonomy: '' },
         inclusion: { womenLeadership: '', diversityRepresentation: '', inclusivePolicies: '' }
@@ -57,17 +60,33 @@ export default function Home() {
     }
     setError(null);
     setCompany(null);
-    setIsSurveyVisible(true); // Show survey after reset
+    setCurrentStep('preferences'); // Go back to preferences after reset
+  };
+
+  // New function to save preferences and proceed to analysis
+  const handleSavePreferencesAndContinue = () => {
+    // Basic validation: ensure at least one preference is selected
+    const allPreferencesSelected = Object.values(preferences).every(category =>
+      Object.values(category).some(value => value !== '')
+    );
+
+    if (!allPreferencesSelected) {
+      setError('Please select at least one preference in each category to proceed.');
+      return;
+    }
+    setError(null);
+    setCurrentStep('analysis');
   };
 
   const handleEnrich = async () => {
     if (!domain.trim()) {
-      setError('Please enter a domain');
+      setError('Please enter a domain.');
       return;
     }
 
     setLoading(true);
     setError(null);
+    setCompany(null); // Clear previous company data
     try {
       const formattedPreferences = {
         flexibility: getPreferenceScore(preferences.flexibility),
@@ -80,12 +99,6 @@ export default function Home() {
         preferences: formattedPreferences
       });
       setCompany(res.data);
-      // After a successful analysis, hide the survey if it was automatically shown for first-time use,
-      // but keep it visible if the user explicitly opened it.
-      if (!localStorage.getItem('userPreferences')) { // Check if preferences were just set for the first time
-        setIsSurveyVisible(false); // Hide the survey after initial submission
-      }
-
     } catch (err) {
       console.error(err);
       setError('Could not enrich company data. Please try again.');
@@ -113,21 +126,21 @@ export default function Home() {
     container: {
       padding: '24px',
       fontFamily: 'Inter, sans-serif',
-      maxWidth: '900px', // Adjusted for better mobile and desktop view
+      maxWidth: '900px',
       margin: '0 auto',
       backgroundColor: '#f0f9ff', // Light Teal background
       minHeight: '100vh',
       borderRadius: '12px',
       boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-      '@media (max-width: 768px)': { // Basic media query simulation
+      '@media (max-width: 768px)': {
         padding: '16px',
       }
     },
     title: {
-      fontSize: '32px', // Slightly larger for better impact
+      fontSize: '32px',
       fontWeight: 'bold',
       marginBottom: '12px',
-      color: '#0f172a', // Darker text for contrast
+      color: '#0f172a',
       textAlign: 'center',
       '@media (max-width: 768px)': {
         fontSize: '28px',
@@ -135,22 +148,31 @@ export default function Home() {
     },
     subtitle: {
       marginBottom: '32px',
-      color: '#475569', // Muted text for subtitle
+      color: '#475569',
       textAlign: 'center',
       fontSize: '18px',
       '@media (max-width: 768px)': {
         fontSize: '16px',
       }
     },
+    sectionHeading: { // New style for section headings
+      fontSize: '24px',
+      fontWeight: '600',
+      marginBottom: '20px',
+      color: '#0e7490', // Teal heading
+      textAlign: 'center',
+      borderBottom: '2px solid #a7f3d0',
+      paddingBottom: '10px'
+    },
     inputContainer: {
       backgroundColor: 'white',
-      padding: '28px', // Increased padding
+      padding: '28px',
       borderRadius: '12px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.08)', // Softer shadow
+      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
       marginBottom: '24px',
       display: 'flex',
-      flexDirection: 'column', // Stack elements vertically on small screens
-      gap: '16px', // Space between input and button
+      flexDirection: 'column',
+      gap: '16px',
     },
     preferencesContainer: {
       backgroundColor: 'white',
@@ -160,22 +182,22 @@ export default function Home() {
       marginBottom: '24px'
     },
     input: {
-      border: '2px solid #a7f3d0', // Light teal border
-      padding: '14px', // Increased padding
+      border: '2px solid #a7f3d0',
+      padding: '14px',
       width: '100%',
       borderRadius: '8px',
-      fontSize: '17px', // Slightly larger font
+      fontSize: '17px',
       transition: 'border-color 0.3s ease-in-out, box-shadow 0.3s ease-in-out',
       outline: 'none',
-      '&:focus': { // Simulating focus effect
-        borderColor: '#14b8a6', // Darker teal on focus
+      '&:focus': {
+        borderColor: '#14b8a6',
         boxShadow: '0 0 0 3px rgba(20, 184, 166, 0.2)'
       }
     },
     button: {
-      backgroundColor: loading ? '#94a3b8' : '#14b8a6', // Teal button, muted when loading
+      backgroundColor: loading ? '#94a3b8' : '#14b8a6',
       color: 'white',
-      padding: '14px 28px', // Larger padding
+      padding: '14px 28px',
       borderRadius: '8px',
       border: 'none',
       cursor: loading ? 'not-allowed' : 'pointer',
@@ -185,22 +207,23 @@ export default function Home() {
       transition: 'background-color 0.3s ease-in-out, transform 0.2s',
       boxShadow: '0 4px 10px rgba(20, 184, 166, 0.2)',
       '&:hover': {
-        backgroundColor: '#0f766e', // Darker teal on hover
+        backgroundColor: '#0f766e',
         transform: 'translateY(-2px)'
       }
     },
-    toggleButton: {
-      backgroundColor: '#06b6d4', // Slightly different teal for toggle
+    secondaryButton: { // New style for secondary actions
+      backgroundColor: '#06b6d4',
       color: 'white',
       padding: '10px 20px',
       borderRadius: '6px',
       border: 'none',
       cursor: 'pointer',
-      fontSize: '14px',
+      fontSize: '15px',
       fontWeight: '500',
-      marginBottom: '16px',
       transition: 'background-color 0.2s',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      display: 'inline-block',
+      marginTop: '15px'
     },
     resetButton: {
       backgroundColor: '#ef4444',
@@ -218,16 +241,16 @@ export default function Home() {
     },
     error: {
       color: '#dc2626',
-      marginTop: '16px', // Increased margin
+      marginTop: '16px',
       padding: '12px',
       backgroundColor: '#fef2f2',
-      borderRadius: '8px', // More rounded
+      borderRadius: '8px',
       border: '1px solid #fecaca',
       fontSize: '14px'
     },
     result: {
       backgroundColor: 'white',
-      border: '1px solid #e0f2f7', // Lighter teal border
+      border: '1px solid #e0f2f7',
       padding: '28px',
       borderRadius: '12px',
       boxShadow: '0 6px 12px rgba(0,0,0,0.08)'
@@ -239,8 +262,8 @@ export default function Home() {
       color: '#0f172a'
     },
     matchScore: {
-      backgroundColor: '#ecfdf5', // Soft green for match
-      border: '2px solid #34d399', // Stronger green border
+      backgroundColor: '#ecfdf5',
+      border: '2px solid #34d399',
       borderRadius: '12px',
       padding: '24px',
       marginBottom: '24px',
@@ -250,11 +273,11 @@ export default function Home() {
     matchScoreTitle: {
       fontSize: '22px',
       fontWeight: '700',
-      color: '#065f46', // Dark green text
+      color: '#065f46',
       marginBottom: '12px'
     },
     matchScoreValue: {
-      fontSize: '38px', // Larger score
+      fontSize: '38px',
       fontWeight: '800',
       color: '#065f46',
       marginBottom: '12px'
@@ -278,10 +301,10 @@ export default function Home() {
       marginBottom: '24px'
     },
     tag: {
-      backgroundColor: '#d1fae5', // Lighter green for tags
+      backgroundColor: '#d1fae5',
       fontSize: '14px',
       padding: '8px 16px',
-      borderRadius: '20px', // More rounded
+      borderRadius: '20px',
       color: '#065f46',
       fontWeight: '500'
     },
@@ -290,7 +313,7 @@ export default function Home() {
       fontWeight: '600',
       marginBottom: '16px',
       color: '#374151',
-      borderBottom: '2px solid #e2e8f0', // Lighter border
+      borderBottom: '2px solid #e2e8f0',
       paddingBottom: '10px'
     },
     questionGroup: {
@@ -306,26 +329,26 @@ export default function Home() {
     radioGroup: {
       display: 'flex',
       flexWrap: 'wrap',
-      gap: '14px', // Increased gap
+      gap: '14px',
       marginBottom: '12px'
     },
     radioOption: {
       display: 'flex',
       alignItems: 'center',
-      gap: '8px', // Increased gap
+      gap: '8px',
       fontSize: '14px',
       color: '#6b7280'
     },
     radioInput: {
       margin: '0',
-      transform: 'scale(1.2)' // Slightly larger radio buttons
+      transform: 'scale(1.2)'
     },
     insightsSection: {
       marginTop: '24px',
       padding: '20px',
-      backgroundColor: '#f0f9ff', // Light teal background for insights
+      backgroundColor: '#f0f9ff',
       borderRadius: '10px',
-      border: '1px solid #cffafe' // Lighter teal border
+      border: '1px solid #cffafe'
     },
     insightsTitle: {
       fontSize: '20px',
@@ -343,11 +366,11 @@ export default function Home() {
       display: 'flex',
       gap: '12px',
       flexWrap: 'wrap',
-      justifyContent: 'center', // Center align links for better mobile
+      justifyContent: 'center',
     },
     linkButton: {
       display: 'inline-block',
-      backgroundColor: '#0ea5e9', // Blue for external links
+      backgroundColor: '#0ea5e9',
       color: 'white',
       padding: '12px 20px',
       borderRadius: '8px',
@@ -376,7 +399,7 @@ export default function Home() {
       textAlign: 'center',
       marginTop: '40px',
       padding: '15px',
-      backgroundColor: '#e0f2fe', // Very light blue for disclaimer
+      backgroundColor: '#e0f2fe',
       borderRadius: '10px',
       border: '1px solid #7dd3fc',
       lineHeight: '1.6'
@@ -391,14 +414,14 @@ export default function Home() {
 
   const getMatchScoreColor = (score) => {
     if (score >= 80) return { bg: '#ecfdf5', border: '#34d399', text: '#065f46' };
-    if (score >= 50) return { bg: '#fff7ed', border: '#fbbf24', text: '#b45309' }; // Warm orange for medium
-    return { bg: '#fef2f2', border: '#f87171', text: '#b91c1c' }; // Softer red for low
+    if (score >= 50) return { bg: '#fff7ed', border: '#fbbf24', text: '#b45309' };
+    return { bg: '#fef2f2', border: '#f87171', text: '#b91c1c' };
   };
 
   const renderPreferencesForm = () => (
     <div style={styles.preferencesContainer}>
-      <h3 style={styles.categoryTitle}>📋 Your Work Preferences</h3>
-      <p style={{ fontSize: '15px', color: '#6b7280', marginBottom: '24px' }}>
+      <h3 style={styles.sectionHeading}>📋 What values and aspects of organization culture are important to you?</h3>
+      <p style={{ fontSize: '15px', color: '#6b7280', marginBottom: '24px', textAlign: 'center' }}>
         Please rate the importance of the following cultural aspects to you. Your selections will help us find companies that best align with your values.
       </p>
 
@@ -632,9 +655,17 @@ export default function Home() {
           ))}
         </div>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginTop: '30px' }}>
         <button
-          style={styles.resetButton}
+          style={{...styles.button, width: 'auto', padding: '12px 25px'}}
+          onClick={handleSavePreferencesAndContinue}
+          onMouseEnter={(e) => e.target.style.backgroundColor = styles.button['&:hover'].backgroundColor}
+          onMouseLeave={(e) => e.target.style.backgroundColor = styles.button.backgroundColor}
+        >
+          Save Preferences & Continue {'->'}
+        </button>
+        <button
+          style={{...styles.resetButton, width: 'auto', padding: '12px 25px', marginLeft: 0}}
           onClick={handleResetPreferences}
           onMouseEnter={(e) => e.target.style.backgroundColor = '#dc2626'}
           onMouseLeave={(e) => e.target.style.backgroundColor = '#ef4444'}
@@ -642,14 +673,15 @@ export default function Home() {
           Reset Preferences
         </button>
       </div>
+      {error && <div style={{...styles.error, marginTop: '20px', textAlign: 'center'}}>{error}</div>}
     </div>
   );
 
-  return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>🌐 Values Sync</h1>
-      <p style={styles.subtitle}>
-        Discover company culture and values alignment through intelligent domain analysis
+  const renderAnalysisSection = () => (
+    <>
+      <h3 style={styles.sectionHeading}>🔎 Now, check if the organization you are interested in syncs with your values!</h3>
+      <p style={{ fontSize: '15px', color: '#6b7280', marginBottom: '24px', textAlign: 'center' }}>
+        Enter a company domain below to see how well its culture aligns with your preferences.
       </p>
 
       <div style={styles.inputContainer}>
@@ -676,15 +708,14 @@ export default function Home() {
         {error && <div style={styles.error}>{error}</div>}
       </div>
 
-      {/* Button to show/hide preferences survey */}
       <div style={{ textAlign: 'center', marginBottom: '24px' }}>
         <button
-          style={styles.toggleButton}
-          onClick={() => setIsSurveyVisible(!isSurveyVisible)}
+          style={styles.secondaryButton}
+          onClick={() => setCurrentStep('preferences')}
           onMouseEnter={(e) => e.target.style.backgroundColor = '#0284c7'}
           onMouseLeave={(e) => e.target.style.backgroundColor = '#06b6d4'}
         >
-          {isSurveyVisible ? 'Hide My Preferences' : 'Set My Preferences'}
+          ✏️ Edit My Preferences
         </button>
       </div>
 
@@ -826,8 +857,17 @@ export default function Home() {
           </div>
         </div>
       )}
+    </>
+  );
 
-      {isSurveyVisible && renderPreferencesForm()}
+  return (
+    <div style={styles.container}>
+      <h1 style={styles.title}>🌐 Values Sync</h1>
+      <p style={styles.subtitle}>
+        Discover company culture and values alignment through intelligent domain analysis
+      </p>
+
+      {currentStep === 'preferences' ? renderPreferencesForm() : renderAnalysisSection()}
 
       <div style={styles.disclaimer}>
         <strong>Disclaimer:</strong> Company and organization-related data, including cultural insights and tags, are based on publicly available reviews, company web pages, and social media pages. This analysis is simulated and intended for informational purposes only, and may not reflect the full complexity of a company's culture. For more detailed and accurate insights, direct research and engagement with the company are recommended.
