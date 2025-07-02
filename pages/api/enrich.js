@@ -58,26 +58,26 @@ function computeMatch(companyTags, userPreferences) {
     'flexible-hours-offered': 'flexibility',
     'fully-remote-company': 'flexibility',
     'hybrid-work-model': 'flexibility',
-    'traditional-office-work': 'flexibility', 
-    'inflexible-hours': 'flexibility', 
-    
+    'traditional-office-work': 'flexibility',
+    'inflexible-hours': 'flexibility',
+
     'flat-structure': 'management',
     'hierarchical-structure': 'management',
     'collaborative-decision-making': 'management',
     'high-autonomy': 'management',
-    'micro-managed': 'management', 
-    'top-down-decisions': 'management', 
-    
+    'micro-managed': 'management',
+    'top-down-decisions': 'management',
+
     'strong-women-leadership': 'inclusion',
     'diverse-representation': 'inclusion',
     'inclusive-policies-active': 'inclusion',
-    'traditional-inclusion-approach': 'inclusion', 
-    'limited-diversity-focus': 'inclusion', 
-    'lgbtq-inclusive': 'inclusion', 
-    'religious-holiday-friendly': 'inclusion', 
-    'on-site-creche': 'inclusion', 
-    'generous-maternity-leave': 'inclusion', 
-    'paternity-leave-offered': 'inclusion', 
+    'traditional-inclusion-approach': 'inclusion',
+    'limited-diversity-focus': 'inclusion',
+    'lgbtq-inclusive': 'inclusion',
+    'religious-holiday-friendly': 'inclusion',
+    'on-site-creche': 'inclusion',
+    'generous-maternity-leave': 'inclusion',
+    'paternity-leave-offered': 'inclusion',
   };
 
   // Keep track of categories for which we've already added the user's preference score
@@ -101,8 +101,8 @@ function computeMatch(companyTags, userPreferences) {
 
   // Calculate the maximum possible score based on the number of categories and max preference score (5).
   // This ensures the percentage is accurate.
-  const maxPossibleScore = Object.keys(userPreferences).length * 5; 
-  
+  const maxPossibleScore = Object.keys(userPreferences).length * 5;
+
   // Calculate the percentage score, rounded to the nearest integer
   let percentageScore = maxPossibleScore > 0 ? Math.round((score / maxPossibleScore) * 100) : 0;
 
@@ -130,27 +130,27 @@ async function simulateCompanyAnalysis(domain) {
     tags.push('innovation', 'digital-transformation', 'agile');
     summary += 'Tech-focused culture with emphasis on innovation and digital transformation. ';
   }
-  
+
   if (domainLower.includes('health') || domainLower.includes('medical') || domainLower.includes('pharma')) {
     tags.push('healthcare', 'compassion', 'patient-focused');
     summary += 'Healthcare-driven mission with focus on patient care and regulatory compliance. ';
   }
-  
+
   if (domainLower.includes('finance') || domainLower.includes('bank') || domainLower.includes('invest')) {
     tags.push('analytical', 'risk-management', 'client-service');
     summary += 'Financial services culture emphasizing analysis and client relationships. ';
   }
-  
+
   if (domainLower.includes('edu') || domainLower.includes('school') || domainLower.includes('university')) {
     tags.push('education', 'mentorship', 'growth', 'research');
     summary += 'Educational environment focused on learning and development. ';
   }
-  
+
   if (domainLower.includes('green') || domainLower.includes('sustain') || domainLower.includes('eco')) {
     tags.push('sustainability', 'environmental', 'purpose-driven');
     summary += 'Environmentally conscious culture with sustainability focus. ';
   }
-  
+
   if (domainLower.includes('start') || domainLower.includes('venture')) {
     tags.push('entrepreneurial', 'fast-paced', 'equity-participation');
     summary += 'Startup culture with entrepreneurial spirit and rapid growth focus. ';
@@ -173,7 +173,7 @@ async function simulateCompanyAnalysis(domain) {
 async function getEnhancedCulturalAnalysis(domain) {
   const company = domain.split('.')[0].toLowerCase();
   const domainLower = domain.toLowerCase(); // Use domainLower for broader checks
-  
+
   const insights = {
     flexibility: null,
     management: null,
@@ -276,10 +276,10 @@ async function tryBasicWebScraping(domain) {
         'User-Agent': 'Mozilla/5.0 (compatible; CultureMatch/1.0)'
       }
     });
-    
+
     const text = response.data.toLowerCase();
     const culturalKeywords = [];
-    
+
     if (text.includes('remote') || text.includes('hybrid')) {
       culturalKeywords.push('remote-friendly');
     }
@@ -289,7 +289,7 @@ async function tryBasicWebScraping(domain) {
     if (text.includes('innovation') || text.includes('creative')) {
       culturalKeywords.push('innovative');
     }
-    
+
     return culturalKeywords;
   } catch (error) {
     // Silently fail and return empty array
