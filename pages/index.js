@@ -582,7 +582,7 @@ export default function Home() {
       <div style={{...styles.categoryTitle, marginTop: '20px'}}>🌈 Inclusion & Diversity</div>
 
       <div style={styles.questionGroup}>
-        <label style={styles.questionLabel}>Women in Leadership Positions</label>
+        <label style={styles.questionLabel}>Representation of underrepresented groups in leadership / senior management positions</label>
         <div style={styles.radioGroup}>
           {[
             { value: 'very-important', label: 'Very Important' },
@@ -607,7 +607,7 @@ export default function Home() {
       </div>
 
       <div style={styles.questionGroup}>
-        <label style={styles.questionLabel}>Diverse Representation (Race, Caste, Gender, Religion)</label>
+        <label style={styles.questionLabel}>Diverse Representation (Race, Caste, Gender, Religion, Age)</label>
         <div style={styles.radioGroup}>
           {[
             { value: 'very-important', label: 'Very Important' },
@@ -632,7 +632,7 @@ export default function Home() {
       </div>
 
       <div style={styles.questionGroup}>
-        <label style={styles.questionLabel}>Inclusive Policies and Practices</label>
+        <label style={styles.questionLabel}>Inclusive Policies and Practices (markers of diverse religious / regional identity respected, trainings on different sexual and gender identities, etc)</label>
         <div style={styles.radioGroup}>
           {[
             { value: 'very-important', label: 'Very Important' },
