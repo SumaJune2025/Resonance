@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'; // Import useEffect for local storage
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 export default function Home() {
@@ -6,66 +6,35 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [company, setCompany] = useState(null);
   const [error, setError] = useState(null);
-  // Set showPreferences to true by default so the survey is visible immediately
-  const [showPreferences, setShowPreferences] = useState(true); 
-  
-  // User preferences state, initialized with empty strings for each option
-  // Initial state will now be loaded from local storage
+  // Renamed for clarity: user might want to hide it after setting.
+  const [isSurveyVisible, setIsSurveyVisible] = useState(false);
+
   const [preferences, setPreferences] = useState(() => {
-    // Try to load preferences from local storage on initial render
-    if (typeof window !== 'undefined') { // Ensure window is defined (client-side)
+    if (typeof window !== 'undefined') {
       const savedPreferences = localStorage.getItem('userPreferences');
+      // If no saved preferences, show the survey by default
+      if (!savedPreferences) {
+        setIsSurveyVisible(true);
+      }
       return savedPreferences ? JSON.parse(savedPreferences) : {
-        flexibility: {
-          workFromHome: '',
-          flexibleHours: '',
-          remoteLocation: ''
-        },
-        management: {
-          structure: '',
-          decisionMaking: '',
-          autonomy: ''
-        },
-        inclusion: {
-          womenLeadership: '',
-          diversityRepresentation: '',
-          inclusivePolicies: ''
-        }
+        flexibility: { workFromHome: '', flexibleHours: '', remoteLocation: '' },
+        management: { structure: '', decisionMaking: '', autonomy: '' },
+        inclusion: { womenLeadership: '', diversityRepresentation: '', inclusivePolicies: '' }
       };
     }
-    // Default initial state for server-side rendering or if window is not defined
     return {
-      flexibility: {
-        workFromHome: '',
-        flexibleHours: '',
-        remoteLocation: ''
-      },
-      management: {
-        structure: '',
-        decisionMaking: '',
-        autonomy: ''
-      },
-      inclusion: {
-        womenLeadership: '',
-        diversityRepresentation: '',
-        inclusivePolicies: ''
-      }
+      flexibility: { workFromHome: '', flexibleHours: '', remoteLocation: '' },
+      management: { structure: '', decisionMaking: '', autonomy: '' },
+      inclusion: { womenLeadership: '', diversityRepresentation: '', inclusivePolicies: '' }
     };
   });
 
-  // useEffect to save preferences to local storage whenever they change
   useEffect(() => {
-    if (typeof window !== 'undefined') { // Ensure window is defined (client-side)
+    if (typeof window !== 'undefined') {
       localStorage.setItem('userPreferences', JSON.stringify(preferences));
     }
-  }, [preferences]); // Dependency array: run this effect whenever 'preferences' state changes
+  }, [preferences]);
 
-  /**
-   * Handles changes in the preference survey radio buttons.
-   * @param {string} category - The main category of the preference (e.g., 'flexibility').
-   * @param {string} field - The specific field within the category (e.g., 'workFromHome').
-   * @param {string} value - The selected value for the field.
-   */
   const handlePreferenceChange = (category, field, value) => {
     setPreferences(prev => ({
       ...prev,
@@ -76,60 +45,47 @@ export default function Home() {
     }));
   };
 
-  /**
-   * Resets all user preferences to their initial empty state and clears local storage.
-   */
   const handleResetPreferences = () => {
     const initialPreferences = {
-      flexibility: {
-        workFromHome: '',
-        flexibleHours: '',
-        remoteLocation: ''
-      },
-      management: {
-        structure: '',
-        decisionMaking: '',
-        autonomy: ''
-      },
-      inclusion: {
-        womenLeadership: '',
-        diversityRepresentation: '',
-        inclusivePolicies: ''
-      }
+      flexibility: { workFromHome: '', flexibleHours: '', remoteLocation: '' },
+      management: { structure: '', decisionMaking: '', autonomy: '' },
+      inclusion: { womenLeadership: '', diversityRepresentation: '', inclusivePolicies: '' }
     };
     setPreferences(initialPreferences);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('userPreferences');
     }
-    setError(null); // Clear any previous errors
-    setCompany(null); // Clear previous company results
+    setError(null);
+    setCompany(null);
+    setIsSurveyVisible(true); // Show survey after reset
   };
 
-  /**
-   * Handles the enrichment process, sending the domain and preferences to the API.
-   */
   const handleEnrich = async () => {
     if (!domain.trim()) {
       setError('Please enter a domain');
       return;
     }
-    
+
     setLoading(true);
     setError(null);
     try {
-      // Convert preferences to a simplified format for the API (e.g., average score per category)
       const formattedPreferences = {
         flexibility: getPreferenceScore(preferences.flexibility),
         management: getPreferenceScore(preferences.management),
         inclusion: getPreferenceScore(preferences.inclusion)
       };
 
-      // Use POST request to send preferences in the body
       const res = await axios.post('/api/enrich', {
         domain,
         preferences: formattedPreferences
       });
       setCompany(res.data);
+      // After a successful analysis, hide the survey if it was automatically shown for first-time use,
+      // but keep it visible if the user explicitly opened it.
+      if (!localStorage.getItem('userPreferences')) { // Check if preferences were just set for the first time
+        setIsSurveyVisible(false); // Hide the survey after initial submission
+      }
+
     } catch (err) {
       console.error(err);
       setError('Could not enrich company data. Please try again.');
@@ -137,93 +93,104 @@ export default function Home() {
     setLoading(false);
   };
 
-  /**
-   * Helper function to convert preference responses (e.g., 'very-important') to a numerical score.
-   * @param {object} categoryPrefs - An object containing preferences for a specific category.
-   * @returns {number} - The average score for the category (1-5).
-   */
   const getPreferenceScore = (categoryPrefs) => {
-    const values = Object.values(categoryPrefs).filter(v => v !== ''); // Filter out unselected options
-    if (values.length === 0) return 0; // Return 0 if no preferences are selected for the category
-    
-    // Map preference strings to numerical scores
+    const values = Object.values(categoryPrefs).filter(v => v !== '');
+    if (values.length === 0) return 0;
+
     const scoreMap = {
       'very-important': 5,
       'important': 4,
       'somewhat-important': 3,
       'not-important': 2,
-      'not-applicable': 1 // Treat 'not-applicable' as a low score or neutral
+      'not-applicable': 1
     };
-    
+
     const totalScore = values.reduce((sum, val) => sum + (scoreMap[val] || 0), 0);
-    // Return the average score, rounded to the nearest integer
     return Math.round(totalScore / values.length);
   };
 
-  // Inline styles for the components (can be moved to a CSS file or Tailwind classes)
   const styles = {
     container: {
       padding: '24px',
-      fontFamily: 'Inter, sans-serif', // Using Inter font
-      maxWidth: '900px',
+      fontFamily: 'Inter, sans-serif',
+      maxWidth: '900px', // Adjusted for better mobile and desktop view
       margin: '0 auto',
-      backgroundColor: '#f9fafb',
+      backgroundColor: '#f0f9ff', // Light Teal background
       minHeight: '100vh',
-      borderRadius: '12px', // Rounded corners for the main container
-      boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+      borderRadius: '12px',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+      '@media (max-width: 768px)': { // Basic media query simulation
+        padding: '16px',
+      }
     },
     title: {
-      fontSize: '28px',
+      fontSize: '32px', // Slightly larger for better impact
       fontWeight: 'bold',
-      marginBottom: '8px',
-      color: '#111827',
-      textAlign: 'center'
+      marginBottom: '12px',
+      color: '#0f172a', // Darker text for contrast
+      textAlign: 'center',
+      '@media (max-width: 768px)': {
+        fontSize: '28px',
+      }
     },
     subtitle: {
-      marginBottom: '24px', 
-      color: '#6b7280',
+      marginBottom: '32px',
+      color: '#475569', // Muted text for subtitle
       textAlign: 'center',
-      fontSize: '16px'
+      fontSize: '18px',
+      '@media (max-width: 768px)': {
+        fontSize: '16px',
+      }
     },
     inputContainer: {
       backgroundColor: 'white',
-      padding: '24px',
+      padding: '28px', // Increased padding
       borderRadius: '12px',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-      marginBottom: '24px'
+      boxShadow: '0 2px 8px rgba(0,0,0,0.08)', // Softer shadow
+      marginBottom: '24px',
+      display: 'flex',
+      flexDirection: 'column', // Stack elements vertically on small screens
+      gap: '16px', // Space between input and button
     },
     preferencesContainer: {
       backgroundColor: 'white',
-      padding: '24px',
+      padding: '28px',
       borderRadius: '12px',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
       marginBottom: '24px'
     },
     input: {
-      border: '2px solid #e5e7eb',
-      padding: '12px',
+      border: '2px solid #a7f3d0', // Light teal border
+      padding: '14px', // Increased padding
       width: '100%',
-      marginBottom: '12px',
       borderRadius: '8px',
-      fontSize: '16px',
-      transition: 'border-color 0.2s',
-      outline: 'none'
+      fontSize: '17px', // Slightly larger font
+      transition: 'border-color 0.3s ease-in-out, box-shadow 0.3s ease-in-out',
+      outline: 'none',
+      '&:focus': { // Simulating focus effect
+        borderColor: '#14b8a6', // Darker teal on focus
+        boxShadow: '0 0 0 3px rgba(20, 184, 166, 0.2)'
+      }
     },
     button: {
-      backgroundColor: loading ? '#9ca3af' : '#1f2937',
+      backgroundColor: loading ? '#94a3b8' : '#14b8a6', // Teal button, muted when loading
       color: 'white',
-      padding: '12px 24px',
+      padding: '14px 28px', // Larger padding
       borderRadius: '8px',
       border: 'none',
       cursor: loading ? 'not-allowed' : 'pointer',
-      fontSize: '16px',
+      fontSize: '17px',
       fontWeight: '600',
       width: '100%',
-      transition: 'background-color 0.2s',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+      transition: 'background-color 0.3s ease-in-out, transform 0.2s',
+      boxShadow: '0 4px 10px rgba(20, 184, 166, 0.2)',
+      '&:hover': {
+        backgroundColor: '#0f766e', // Darker teal on hover
+        transform: 'translateY(-2px)'
+      }
     },
     toggleButton: {
-      backgroundColor: '#3b82f6',
+      backgroundColor: '#06b6d4', // Slightly different teal for toggle
       color: 'white',
       padding: '10px 20px',
       borderRadius: '6px',
@@ -236,7 +203,7 @@ export default function Home() {
       boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
     },
     resetButton: {
-      backgroundColor: '#ef4444', // Red color for reset
+      backgroundColor: '#ef4444',
       color: 'white',
       padding: '10px 20px',
       borderRadius: '6px',
@@ -245,195 +212,198 @@ export default function Home() {
       fontSize: '14px',
       fontWeight: '500',
       marginBottom: '16px',
-      marginLeft: '10px', // Add some margin
+      marginLeft: '10px',
       transition: 'background-color 0.2s',
       boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
     },
     error: {
       color: '#dc2626',
-      marginTop: '8px',
-      padding: '8px',
+      marginTop: '16px', // Increased margin
+      padding: '12px',
       backgroundColor: '#fef2f2',
-      borderRadius: '4px',
-      border: '1px solid #fecaca'
+      borderRadius: '8px', // More rounded
+      border: '1px solid #fecaca',
+      fontSize: '14px'
     },
     result: {
       backgroundColor: 'white',
-      border: '1px solid #e5e7eb',
-      padding: '24px',
+      border: '1px solid #e0f2f7', // Lighter teal border
+      padding: '28px',
       borderRadius: '12px',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
+      boxShadow: '0 6px 12px rgba(0,0,0,0.08)'
     },
     resultTitle: {
-      fontSize: '24px',
+      fontSize: '26px',
       fontWeight: '700',
-      marginBottom: '8px',
-      color: '#111827'
+      marginBottom: '10px',
+      color: '#0f172a'
     },
     matchScore: {
-      backgroundColor: '#f0fdf4',
-      border: '2px solid #22c55e',
+      backgroundColor: '#ecfdf5', // Soft green for match
+      border: '2px solid #34d399', // Stronger green border
       borderRadius: '12px',
-      padding: '20px',
-      marginBottom: '20px',
+      padding: '24px',
+      marginBottom: '24px',
       textAlign: 'center',
-      boxShadow: '0 2px 8px rgba(34,197,94,0.2)'
+      boxShadow: '0 4px 12px rgba(52,211,153,0.2)'
     },
     matchScoreTitle: {
-      fontSize: '20px',
+      fontSize: '22px',
       fontWeight: '700',
-      color: '#15803d',
-      marginBottom: '8px'
+      color: '#065f46', // Dark green text
+      marginBottom: '12px'
     },
     matchScoreValue: {
-      fontSize: '32px',
+      fontSize: '38px', // Larger score
       fontWeight: '800',
-      color: '#15803d',
-      marginBottom: '8px'
+      color: '#065f46',
+      marginBottom: '12px'
     },
     matchReasons: {
-      fontSize: '14px',
-      color: '#166534',
-      lineHeight: '1.5'
+      fontSize: '15px',
+      color: '#065f46',
+      lineHeight: '1.6'
     },
     summary: {
-      marginBottom: '16px',
+      marginBottom: '20px',
       whiteSpace: 'pre-line',
-      lineHeight: '1.6',
+      lineHeight: '1.7',
       color: '#374151',
-      fontSize: '15px'
+      fontSize: '16px'
     },
     tagsContainer: {
       display: 'flex',
       flexWrap: 'wrap',
-      gap: '8px',
-      marginBottom: '20px'
+      gap: '10px',
+      marginBottom: '24px'
     },
     tag: {
-      backgroundColor: '#dbeafe',
-      fontSize: '13px',
-      padding: '6px 12px',
-      borderRadius: '16px',
-      color: '#1e40af',
+      backgroundColor: '#d1fae5', // Lighter green for tags
+      fontSize: '14px',
+      padding: '8px 16px',
+      borderRadius: '20px', // More rounded
+      color: '#065f46',
       fontWeight: '500'
     },
     categoryTitle: {
-      fontSize: '18px',
+      fontSize: '20px',
       fontWeight: '600',
-      marginBottom: '12px',
+      marginBottom: '16px',
       color: '#374151',
-      borderBottom: '2px solid #e5e7eb',
-      paddingBottom: '8px'
+      borderBottom: '2px solid #e2e8f0', // Lighter border
+      paddingBottom: '10px'
     },
     questionGroup: {
-      marginBottom: '20px'
+      marginBottom: '24px'
     },
     questionLabel: {
-      fontSize: '14px',
+      fontSize: '15px',
       fontWeight: '500',
       color: '#4b5563',
-      marginBottom: '8px',
+      marginBottom: '10px',
       display: 'block'
     },
     radioGroup: {
       display: 'flex',
       flexWrap: 'wrap',
-      gap: '12px',
+      gap: '14px', // Increased gap
       marginBottom: '12px'
     },
     radioOption: {
       display: 'flex',
       alignItems: 'center',
-      gap: '6px',
-      fontSize: '13px',
+      gap: '8px', // Increased gap
+      fontSize: '14px',
       color: '#6b7280'
     },
     radioInput: {
       margin: '0',
-      transform: 'scale(1.1)'
+      transform: 'scale(1.2)' // Slightly larger radio buttons
     },
     insightsSection: {
-      marginTop: '20px',
-      padding: '16px',
-      backgroundColor: '#f8fafc',
-      borderRadius: '8px',
-      border: '1px solid #e2e8f0'
+      marginTop: '24px',
+      padding: '20px',
+      backgroundColor: '#f0f9ff', // Light teal background for insights
+      borderRadius: '10px',
+      border: '1px solid #cffafe' // Lighter teal border
     },
     insightsTitle: {
-      fontSize: '18px',
+      fontSize: '20px',
       fontWeight: '600',
-      marginBottom: '12px',
-      color: '#475569'
+      marginBottom: '16px',
+      color: '#083344'
     },
     insightItem: {
-      marginBottom: '8px',
-      fontSize: '14px',
-      color: '#64748b'
+      marginBottom: '10px',
+      fontSize: '15px',
+      color: '#334155'
     },
     linksContainer: {
-      marginTop: '20px',
+      marginTop: '24px',
       display: 'flex',
       gap: '12px',
-      flexWrap: 'wrap'
+      flexWrap: 'wrap',
+      justifyContent: 'center', // Center align links for better mobile
     },
     linkButton: {
       display: 'inline-block',
-      backgroundColor: '#2563eb',
+      backgroundColor: '#0ea5e9', // Blue for external links
       color: 'white',
-      padding: '10px 16px',
-      borderRadius: '6px',
+      padding: '12px 20px',
+      borderRadius: '8px',
       textDecoration: 'none',
-      fontSize: '14px',
+      fontSize: '15px',
       fontWeight: '500',
-      transition: 'background-color 0.2s',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+      transition: 'background-color 0.2s, transform 0.2s',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      '&:hover': {
+        backgroundColor: '#0284c7',
+        transform: 'translateY(-1px)'
+      }
     },
     note: {
-      fontSize: '12px',
-      color: '#9ca3af',
+      fontSize: '13px',
+      color: '#64748b',
       fontStyle: 'italic',
-      marginTop: '12px',
-      padding: '8px',
-      backgroundColor: '#f9fafb',
-      borderRadius: '4px'
+      marginTop: '16px',
+      padding: '10px',
+      backgroundColor: '#f8fafc',
+      borderRadius: '6px'
     },
     disclaimer: {
-      fontSize: '12px',
-      color: '#6b7280',
+      fontSize: '13px',
+      color: '#475569',
       textAlign: 'center',
-      marginTop: '30px',
-      padding: '10px',
-      backgroundColor: '#e0e7ff', // Light blue background for emphasis
-      borderRadius: '8px',
-      border: '1px solid #93c5fd'
+      marginTop: '40px',
+      padding: '15px',
+      backgroundColor: '#e0f2fe', // Very light blue for disclaimer
+      borderRadius: '10px',
+      border: '1px solid #7dd3fc',
+      lineHeight: '1.6'
     }
   };
 
-  // Helper function to clean domain for searches
   const getCleanDomain = (domain) => {
     return domain.replace(/https?:\/\//g, '')
                  .replace(/www\./g, '')
                  .replace(/linkedin\.com\/company\//g, '');
   };
 
-  // Function to determine color scheme for match score based on its value (now for percentage)
   const getMatchScoreColor = (score) => {
-    if (score >= 80) return { bg: '#f0fdf4', border: '#22c55e', text: '#15803d' }; // Green for high score (80-100%)
-    if (score >= 50) return { bg: '#fffbeb', border: '#f59e0b', text: '#d97706' }; // Orange for medium score (50-79%)
-    return { bg: '#fef2f2', border: '#ef4444', text: '#dc2626' }; // Red for low score (0-49%)
+    if (score >= 80) return { bg: '#ecfdf5', border: '#34d399', text: '#065f46' };
+    if (score >= 50) return { bg: '#fff7ed', border: '#fbbf24', text: '#b45309' }; // Warm orange for medium
+    return { bg: '#fef2f2', border: '#f87171', text: '#b91c1c' }; // Softer red for low
   };
 
-  // Component to render the preferences survey form
   const renderPreferencesForm = () => (
     <div style={styles.preferencesContainer}>
       <h3 style={styles.categoryTitle}>📋 Your Work Preferences</h3>
-      <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '20px' }}>
+      <p style={{ fontSize: '15px', color: '#6b7280', marginBottom: '24px' }}>
         Please rate the importance of the following cultural aspects to you. Your selections will help us find companies that best align with your values.
       </p>
 
-      {/* Work Flexibility Section */}
       <div style={{...styles.categoryTitle, marginTop: '20px'}}>🏠 Work Flexibility</div>
-      
+
       <div style={styles.questionGroup}>
         <label style={styles.questionLabel}>Work from Home Options</label>
         <div style={styles.radioGroup}>
@@ -509,9 +479,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Management Structure Section */}
       <div style={{...styles.categoryTitle, marginTop: '20px'}}>👥 Management Structure</div>
-      
+
       <div style={styles.questionGroup}>
         <label style={styles.questionLabel}>Organizational Structure (Flat vs Hierarchical)</label>
         <div style={styles.radioGroup}>
@@ -587,9 +556,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Inclusion & Diversity Section */}
       <div style={{...styles.categoryTitle, marginTop: '20px'}}>🌈 Inclusion & Diversity</div>
-      
+
       <div style={styles.questionGroup}>
         <label style={styles.questionLabel}>Women in Leadership Positions</label>
         <div style={styles.radioGroup}>
@@ -684,12 +652,47 @@ export default function Home() {
         Discover company culture and values alignment through intelligent domain analysis
       </p>
 
-      {/* Display Match Score and Company Details at the top, conditional on company data */}
+      <div style={styles.inputContainer}>
+        <input
+          style={styles.input}
+          placeholder="Enter company domain (e.g., acme.com or linkedin.com/company/acme)"
+          value={domain}
+          onChange={(e) => setDomain(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleEnrich()}
+          onFocus={(e) => e.target.style.borderColor = styles.input['&:focus'].borderColor}
+          onBlur={(e) => e.target.style.borderColor = styles.input.border.split(' ')[2]}
+        />
+
+        <button
+          style={styles.button}
+          onClick={handleEnrich}
+          disabled={loading}
+          onMouseEnter={(e) => !loading && (e.target.style.backgroundColor = styles.button['&:hover'].backgroundColor)}
+          onMouseLeave={(e) => !loading && (e.target.style.backgroundColor = styles.button.backgroundColor)}
+        >
+          {loading ? 'Analyzing Culture...' : 'Analyze Company Culture'}
+        </button>
+
+        {error && <div style={styles.error}>{error}</div>}
+      </div>
+
+      {/* Button to show/hide preferences survey */}
+      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+        <button
+          style={styles.toggleButton}
+          onClick={() => setIsSurveyVisible(!isSurveyVisible)}
+          onMouseEnter={(e) => e.target.style.backgroundColor = '#0284c7'}
+          onMouseLeave={(e) => e.target.style.backgroundColor = '#06b6d4'}
+        >
+          {isSurveyVisible ? 'Hide My Preferences' : 'Set My Preferences'}
+        </button>
+      </div>
+
       {company && (
         <div style={styles.result}>
           <h2 style={styles.resultTitle}>{company.domain}</h2>
-          
-          {company.match && company.match.score !== undefined && ( // Check for undefined to allow 0 score
+
+          {company.match && company.match.score !== undefined && (
             <div style={{
               ...styles.matchScore,
               backgroundColor: getMatchScoreColor(company.match.score).bg,
@@ -702,7 +705,6 @@ export default function Home() {
                 🎯 Culture Match Score
               </div>
               <div style={{
-                // Display percentage here
                 ...styles.matchScoreValue,
                 color: getMatchScoreColor(company.match.score).text
               }}>
@@ -731,11 +733,11 @@ export default function Home() {
               )}
             </div>
           )}
-          
+
           <p style={styles.summary}>
             {company.summary?.summary || company.summary}
           </p>
-          
+
           {company.summary?.tags && company.summary.tags.length > 0 && (
             <div>
               <strong style={{color: '#374151', marginBottom: '8px', display: 'block'}}>
@@ -754,7 +756,7 @@ export default function Home() {
           {company.culturalInsights && (
             <div style={styles.insightsSection}>
               <h3 style={styles.insightsTitle}>Detailed Cultural Insights</h3>
-              
+
               {company.culturalInsights.insights && (
                 <div>
                   {Object.entries(company.culturalInsights.insights).map(([key, value]) => (
@@ -789,15 +791,15 @@ export default function Home() {
               )}
             </div>
           )}
-          
+
           <div style={styles.linksContainer}>
             <a
               href={`https://www.google.com/search?q=site:linkedin.com/company+${encodeURIComponent(getCleanDomain(company.domain))}`}
               target="_blank"
               rel="noopener noreferrer"
               style={styles.linkButton}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#1d4ed8'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = '#2563eb'}
+              onMouseEnter={(e) => e.target.style.backgroundColor = styles.linkButton['&:hover'].backgroundColor}
+              onMouseLeave={(e) => e.target.style.backgroundColor = styles.linkButton.backgroundColor}
             >
               🔍 LinkedIn Posts
             </a>
@@ -806,8 +808,8 @@ export default function Home() {
               target="_blank"
               rel="noopener noreferrer"
               style={styles.linkButton}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#1d4ed8'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = '#2563eb'}
+              onMouseEnter={(e) => e.target.style.backgroundColor = styles.linkButton['&:hover'].backgroundColor}
+              onMouseLeave={(e) => e.target.style.backgroundColor = styles.linkButton.backgroundColor}
             >
               💼 Glassdoor Reviews
             </a>
@@ -816,8 +818,8 @@ export default function Home() {
               target="_blank"
               rel="noopener noreferrer"
               style={styles.linkButton}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#1d4ed8'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = '#2563eb'}
+              onMouseEnter={(e) => e.target.style.backgroundColor = styles.linkButton['&:hover'].backgroundColor}
+              onMouseLeave={(e) => e.target.style.backgroundColor = styles.linkButton.backgroundColor}
             >
               🚀 Career Page
             </a>
@@ -825,35 +827,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* Input container is now above the survey */}
-      <div style={styles.inputContainer}>
-        <input
-          style={styles.input}
-          placeholder="Enter company domain (e.g., acme.com or linkedin.com/company/acme)"
-          value={domain}
-          onChange={(e) => setDomain(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleEnrich()}
-          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-          onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-        />
-        
-        <button
-          style={styles.button}
-          onClick={handleEnrich}
-          disabled={loading}
-          onMouseEnter={(e) => !loading && (e.target.style.backgroundColor = '#111827')}
-          onMouseLeave={(e) => !loading && (e.target.style.backgroundColor = '#1f2937')}
-        >
-          {loading ? 'Analyzing Culture...' : 'Analyze Company Culture'}
-        </button>
+      {isSurveyVisible && renderPreferencesForm()}
 
-        {error && <div style={styles.error}>{error}</div>}
-      </div>
-
-      {/* Render preferences form only if showPreferences is true (now at the bottom) */}
-      {showPreferences && renderPreferencesForm()}
-
-      {/* Disclaimer Section */}
       <div style={styles.disclaimer}>
         <strong>Disclaimer:</strong> Company and organization-related data, including cultural insights and tags, are based on publicly available reviews, company web pages, and social media pages. This analysis is simulated and intended for informational purposes only, and may not reflect the full complexity of a company's culture. For more detailed and accurate insights, direct research and engagement with the company are recommended.
       </div>
