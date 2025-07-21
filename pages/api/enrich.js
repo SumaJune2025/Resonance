@@ -39,7 +39,7 @@ export default async function handler(req, res) {
 function computeMatch(companyTags, userPreferences) {
   let score = 0;
   let reasons = [];
-  let maxPossibleScoreForPositiveTags = 0; 
+  let maxPossibleScoreForPositiveTags = 0; // Denominator for normalization
 
   // Define preferences to iterate through
   const preferenceCategories = ['flexibility', 'management', 'inclusion'];
@@ -62,19 +62,12 @@ function computeMatch(companyTags, userPreferences) {
   // Define general positive tags that add a small bonus regardless of specific category importance
   const generalPositiveTags = ['integrity', 'teamwork', 'communication', 'customer-centric'];
 
-  // 1. Calculate max possible score based on *user's selected importance* and *number of potential matching tags*
+  // 1. Calculate max possible score based on *user's selected importance*
+  // This is the sum of the user's preference scores for categories they care about.
   preferenceCategories.forEach(category => {
     const userPrefScore = preferenceScoreMap[userPreferences[category] || 'not-important'];
-    if (userPrefScore > 0) {
-      // Max possible score for this category is user's preference importance multiplied by the number of tags in that category
-      maxPossibleScoreForPositiveTags += userPrefScore * positiveTagMap[category].length;
-    }
+    maxPossibleScoreForPositiveTags += userPrefScore;
   });
-
-  // Add a base for general positive tags to the max possible score, if any preference is selected
-  if (maxPossibleScoreForPositiveTags > 0) {
-      maxPossibleScoreForPositiveTags += generalPositiveTags.length * 0.5; // Each general tag can add 0.5
-  }
 
 
   // 2. Factor in positive tags
@@ -84,54 +77,51 @@ function computeMatch(companyTags, userPreferences) {
       if (positiveTagMap[category].includes(tag)) {
         const userPrefScore = preferenceScoreMap[userPreferences[category] || 'not-important'];
         if (userPrefScore > 0) { 
-          score += userPrefScore; // Add user's preference score for each matching tag
+          score += userPrefScore; // Add user's preference score for EACH matching tag
           reasons.push(`Positive match: ${tag.replace(/-/g, ' ')} aligns with your ${category} preference.`);
         }
         tagMatchedToCategory = true;
         break; 
       }
     }
-    // Add small bonus for general positive tags if user has *any* preferences
+    // Add small bonus for general positive tags IF user has expressed *any* preference for culture (maxPossibleScoreForPositiveTags > 0)
     if (!tagMatchedToCategory && generalPositiveTags.includes(tag)) {
         if (maxPossibleScoreForPositiveTags > 0) { 
-            score += 0.5; 
+            score += 0.5; // Fixed small bonus
             reasons.push(`General positive attribute: ${tag.replace(/-/g, ' ')}.`);
         }
     }
   });
 
-  // 3. Define negative tags and their associated penalties (scaled by preference importance)
+  // 3. Define negative tags and their associated fixed penalty points
   const negativeTagPenalties = {
-    'micro-managed': { category: ['management', 'flexibility'], penaltyFactor: 0.5 }, // Further reduced
-    'long-hours': { category: ['flexibility'], penaltyFactor: 0.75 }, // Further reduced
-    'top-down': { category: ['management'], penaltyFactor: 0.5 }, // Further reduced
-    'racial-bias': { category: ['inclusion'], penaltyFactor: 1.5 }, // Further reduced
-    'ethnic-bias': { category: ['inclusion'], penaltyFactor: 1.5 },
-    'religious-bias': { category: ['inclusion'], penaltyFactor: 1.5 },
-    'caste-bias': { category: ['inclusion'], penaltyFactor: 1.5 },
+    'micro-managed': { category: ['management', 'flexibility'], penaltyPoints: 1 }, 
+    'long-hours': { category: ['flexibility'], penaltyPoints: 2 }, 
+    'top-down': { category: ['management'], penaltyPoints: 1 }, 
+    'racial-bias': { category: ['inclusion'], penaltyPoints: 3 }, 
+    'ethnic-bias': { category: ['inclusion'], penaltyPoints: 3 },
+    'religious-bias': { category: ['inclusion'], penaltyPoints: 3 },
+    'caste-bias': { category: ['inclusion'], penaltyPoints: 3 },
   };
 
   // 4. Factor in negative tags (penalties)
   companyTags.forEach(tag => {
     if (negativeTagPenalties[tag]) {
-      const { category, penaltyFactor } = negativeTagPenalties[tag];
-      let relevantUserPrefScore = 0;
+      const { category, penaltyPoints } = negativeTagPenalties[tag];
+      let shouldPenalize = false;
 
-      // Sum user's preference score in relevant categories for this negative tag
+      // Check if user has *any* preference in the relevant categories for this negative tag
       if (Array.isArray(category)) {
-        category.forEach(cat => {
-          relevantUserPrefScore += preferenceScoreMap[userPreferences[cat] || 'not-important'];
-        });
+        shouldPenalize = category.some(cat => preferenceScoreMap[userPreferences[cat] || 'not-important'] > 0);
       } else { 
-        relevantUserPrefScore = preferenceScoreMap[userPreferences[category] || 'not-important'];
+        shouldPenalize = preferenceScoreMap[userPreferences[category] || 'not-important'] > 0;
       }
 
-      if (relevantUserPrefScore > 0) { 
-        const penalty = relevantUserPrefScore * penaltyFactor;
-        score -= penalty;
+      if (shouldPenalize) { 
+        score -= penaltyPoints; // Deduct fixed penalty points
         reasons.push(`Critical concern: Presence of ${tag.replace(/-/g, ' ')} which conflicts with your preferences.`);
       } else {
-          reasons.push(`Note: Potential ${tag.replace(/-/g, ' ')} issues were identified.`);
+          reasons.push(`Note: Potential ${tag.replace(/-/g, ' ')} issues were identified, even if not a strong conflict with your current preferences.`);
       }
     }
   });
@@ -140,48 +130,25 @@ function computeMatch(companyTags, userPreferences) {
   // 5. Ensure score doesn't go below zero
   score = Math.max(0, score);
 
+  // --- Debugging Logs (Placed before final percentage calculation) ---
+  console.log('--- ComputeMatch Debugging ---');
+  console.log('Company Tags:', companyTags);
+  console.log('User Preferences:', userPreferences);
+  console.log('Max Possible Score (Denominator, sum of user preference levels):', maxPossibleScoreForPositiveTags);
+  console.log('Score (after positives and negatives, before final clamping):', score);
   // 6. Calculate percentage match
   let matchPercentage = 0;
   if (maxPossibleScoreForPositiveTags > 0) {
       matchPercentage = Math.round((score / maxPossibleScoreForPositiveTags) * 100);
   } else {
-      // If no preferences selected (maxPossibleScoreForPositiveTags is 0), then 0% match
-      // unless some general positive tags accumulated score (which we should ignore for % calculation
-      // if there's no defined 'max' from preferences).
+      // If user selected "not-important" for all categories, then the max possible score is 0.
+      // In this case, match is 0% as no preferences were given to match against.
       matchPercentage = 0; 
   }
 
   // Final sanity check for percentage to be between 0 and 100
   const finalMatchPercentage = Math.min(100, Math.max(0, matchPercentage));
-
-  // --- Debugging Logs ---
-  console.log('--- ComputeMatch Debugging ---');
-  console.log('Company Tags:', companyTags);
-  console.log('User Preferences:', userPreferences);
-  console.log('Max Possible Score (Denominator):', maxPossibleScoreForPositiveTags);
-  console.log('Score (after positives, before negatives):', score); // This will be the score after positive accumulation
-  // Re-calculate score after positives to log it accurately before negatives apply
-  let debugScoreAfterPositives = 0;
-  companyTags.forEach(tag => {
-    let tagMatchedToCategory = false;
-    for (const category of preferenceCategories) {
-      if (positiveTagMap[category].includes(tag)) {
-        const userPrefScore = preferenceScoreMap[userPreferences[category] || 'not-important'];
-        if (userPrefScore > 0) { 
-          debugScoreAfterPositives += userPrefScore;
-        }
-        tagMatchedToCategory = true;
-        break; 
-      }
-    }
-    if (!tagMatchedToCategory && generalPositiveTags.includes(tag)) {
-        if (maxPossibleScoreForPositiveTags > 0) { 
-            debugScoreAfterPositives += 0.5; 
-        }
-    }
-  });
-  console.log('Score accumulated from POSITIVE tags only:', debugScoreAfterPositives);
-  console.log('Score (after all calculations, before final clamping):', score);
+  
   console.log('Final Match Percentage:', finalMatchPercentage);
   console.log('Reasons:', reasons);
   console.log('------------------------------');
