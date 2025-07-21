@@ -111,5 +111,52 @@ export default function Home() {
     return sorted.length > 0 ? sorted[0][0] : 'not-important';
   };
 
-  // ... rest of your component remains unchanged (UI and styles)
-}
+  return (
+    <div className="p-4 max-w-2xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">CultureMatch</h1>
+
+      {currentStep === 'preferences' && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Step 1: Select Your Preferences</h2>
+
+          {['flexibility', 'management', 'inclusion'].map((category) => (
+            <div key={category}>
+              <h3 className="font-semibold capitalize">{category}</h3>
+              {Object.keys(preferences[category]).map((field) => (
+                <div key={field} className="mb-2">
+                  <label className="block text-sm">
+                    {field.replace(/([A-Z])/g, ' $1')}:
+                    <select
+                      className="ml-2 border p-1"
+                      value={preferences[category][field]}
+                      onChange={(e) => handlePreferenceChange(category, field, e.target.value)}
+                    >
+                      <option value="">Select</option>
+                      <option value="not-important">Not Important</option>
+                      <option value="somewhat-important">Somewhat Important</option>
+                      <option value="important">Important</option>
+                      <option value="very-important">Very Important</option>
+                    </select>
+                  </label>
+                </div>
+              ))}
+            </div>
+          ))}
+
+          <button
+            onClick={handleSavePreferencesAndContinue}
+            className="bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            Continue
+          </button>
+        </div>
+      )}
+
+      {currentStep === 'analysis' && (
+        <div className="space-y-4 mt-4">
+          <h2 className="text-lg font-semibold">Step 2: Analyze Company</h2>
+          <input
+            type="text"
+            placeholder="Enter company domain (e.g., acme.org)"
+            value={domain}
+            onChange={(e) => setDomain(e.target.valu
