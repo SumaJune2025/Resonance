@@ -39,7 +39,7 @@ export default async function handler(req, res) {
 function computeMatch(companyTags, userPreferences) {
   let score = 0;
   let reasons = [];
-  let maxPossibleScoreForPositiveTags = 0; // Tracks the max score achievable from positive tags if all preferences are 'very-important'
+  let maxPossibleScoreForPositiveTags = 0;
 
   // Define preferences to iterate through
   const preferenceCategories = ['flexibility', 'management', 'inclusion'];
@@ -56,20 +56,13 @@ function computeMatch(companyTags, userPreferences) {
   const positiveTagMap = {
     'flexibility': ['work-from-home-friendly', 'remote-friendly', 'flexible-hours', 'work-life-balance', 'flexibility-carers', 'paternity-leave'],
     'management': ['flat-hierarchy', 'employee-empowerment', 'transparent-communication', 'professional-growth', 'learning-culture', 'innovation-voice'],
-    'inclusion': ['diverse-workforce', 'inclusive-environment', 'equal-opportunity', 'women-leadership', 'lgbtqa', 'lgbtqa-plus', 'ramadan-friendly', 'diwali-friendly', 'onam-friendly', 'eid-friendly', 'christmas-friendly', 'communities-respect', 'climate-change'],
+    'inclusion': ['diverse-workforce', 'inclusive-environment', 'equal-opportunity', 'women-leadership', 'lgbtqa', 'lgbtqa-plus', 'ramadan-friendly', 'diwali-friendly', 'onam-friendly', 'eid-friendly', 'christmas-friendly', 'communities-respect', 'climate-change', 'racial-equity-focus', 'caste-equity-awareness'], // Added equity tags as positive
   };
 
   // Calculate max possible score for normalization based on *user's selected preferences*
-  // This ensures normalization only considers categories where the user expressed importance.
   preferenceCategories.forEach(category => {
     const userPrefScore = preferenceScoreMap[userPreferences[category] || 'not-important'];
     if (userPrefScore > 0) { // Only add to max if user cares about this category
-      // Add the highest possible score for a relevant tag in this category
-      // For simplicity, assuming each relevant positive tag can contribute up to userPrefScore
-      // and a category can have multiple contributing tags.
-      // A simpler max would be just userPrefScore * (number of relevant positive tags in that category)
-      // Let's go with a simpler model: max possible score is the sum of user's chosen preference importance
-      // across all categories they care about. This represents the 'ideal match'.
       maxPossibleScoreForPositiveTags += userPrefScore;
     }
   });
@@ -77,21 +70,21 @@ function computeMatch(companyTags, userPreferences) {
 
   // Factor in positive tags
   companyTags.forEach(tag => {
-    let tagFound = false;
+    let tagFoundInPositiveMap = false;
     for (const category of preferenceCategories) {
       if (positiveTagMap[category].includes(tag)) {
         const userPrefScore = preferenceScoreMap[userPreferences[category] || 'not-important'];
         if (userPrefScore > 0) { // Only add score if user cares about this preference
           score += userPrefScore;
           reasons.push(`Strong focus on ${tag.replace(/-/g, ' ')} aligns with your ${category} preference.`);
-          tagFound = true;
         }
-        break; // Tag found in a category, move to next company tag
+        tagFoundInPositiveMap = true;
+        break; 
       }
     }
     // Handle general positive tags that aren't specific to a category but add a small bonus
-    if (!tagFound && ['integrity', 'teamwork', 'communication', 'customer-centric'].includes(tag)) {
-        if (maxPossibleScoreForPositiveTags > 0) { // Only if user has any preferences
+    if (!tagFoundInPositiveMap && ['integrity', 'teamwork', 'communication', 'customer-centric'].includes(tag)) {
+        if (maxPossibleScoreForPositiveTags > 0) { // Only if user has any preferences selected
             score += 0.5; // Small bonus for general positive traits
             reasons.push(`General positive attribute: ${tag.replace(/-/g, ' ')}.`);
         }
@@ -100,13 +93,13 @@ function computeMatch(companyTags, userPreferences) {
 
   // Define negative tags and their associated penalties (scaled by preference importance)
   const negativeTagPenalties = {
-    'micro-managed': { category: ['management', 'flexibility'], penaltyFactor: 1.5 }, // Moderate penalty
-    'long-hours': { category: ['flexibility'], penaltyFactor: 2 }, // Higher penalty for flexibility
-    'top-down': { category: ['management'], penaltyFactor: 1.5 }, // Moderate penalty
-    'racial-bias': { category: ['inclusion'], penaltyFactor: 4 }, // High penalty for inclusion
-    'ethnic-bias': { category: ['inclusion'], penaltyFactor: 4 },
-    'religious-bias': { category: ['inclusion'], penaltyFactor: 4 },
-    'caste-bias': { category: ['inclusion'], penaltyFactor: 4 },
+    'micro-managed': { category: ['management', 'flexibility'], penaltyFactor: 1 }, // Reduced penalty
+    'long-hours': { category: ['flexibility'], penaltyFactor: 1.5 }, // Reduced penalty
+    'top-down': { category: ['management'], penaltyFactor: 1 }, // Reduced penalty
+    'racial-bias': { category: ['inclusion'], penaltyFactor: 3 }, // Reduced penalty
+    'ethnic-bias': { category: ['inclusion'], penaltyFactor: 3 },
+    'religious-bias': { category: ['inclusion'], penaltyFactor: 3 },
+    'caste-bias': { category: ['inclusion'], penaltyFactor: 3 },
   };
 
 
@@ -122,7 +115,7 @@ function computeMatch(companyTags, userPreferences) {
         category.forEach(cat => {
           relevantUserPrefScore += preferenceScoreMap[userPreferences[cat] || 'not-important'];
         });
-      } else {
+      } else { // Single category
         relevantUserPrefScore = preferenceScoreMap[userPreferences[category] || 'not-important'];
       }
 
@@ -134,7 +127,7 @@ function computeMatch(companyTags, userPreferences) {
       }
       
       if (!penalized) { // If not directly penalized because user didn't have high preference, still note it
-        reasons.push(`Note: Potential ${tag.replace(/-/g, ' ')} issues were identified.`);
+        reasons.push(`Note: Potential ${tag.replace(/-/g, ' ')} issues were identified, even if not a strong conflict with your current preferences.`);
       }
     }
   });
@@ -144,19 +137,29 @@ function computeMatch(companyTags, userPreferences) {
   score = Math.max(0, score);
 
   // Calculate percentage match
-  // Normalize based on max possible score from *positive* contributions only.
-  // If maxPossibleScoreForPositiveTags is 0, it means user selected 'not-important' for all categories,
-  // so the match should be 0 unless there's some base positive score (which we don't have beyond 0.5 bonus).
-  const matchPercentage = maxPossibleScoreForPositiveTags > 0 ? Math.round((score / maxPossibleScoreForPositiveTags) * 100) : 0;
+  let matchPercentage;
+  if (maxPossibleScoreForPositiveTags === 0) {
+      // If user selected "not-important" for all categories, but positive tags were found,
+      // we need a base to show a score. Let's use a small default max.
+      // Or, more accurately, if user cares about nothing, match is 0.
+      // If there's a score but no max, that implies user didn't set preferences.
+      matchPercentage = 0; 
+      if (score > 0) { // If some score accumulated (e.g., from general tags) but user has no preferences
+        // This case indicates user didn't specify preferences but there's something good.
+        // It's tricky. For now, let's keep it 0 as no explicit preference was set.
+      }
+  } else {
+      matchPercentage = Math.round((score / maxPossibleScoreForPositiveTags) * 100);
+  }
 
   // Final sanity check for percentage to be between 0 and 100
   const finalMatchPercentage = Math.min(100, Math.max(0, matchPercentage));
 
   // Add a general concluding reason if no specific reasons were added
   if (reasons.length === 0 && finalMatchPercentage > 0) {
-    reasons.push('The company generally aligns with your selected preferences, but no specific matches were highlighted.');
+    reasons.push('The company shows general positive cultural aspects that may align with your overall preferences.');
   } else if (reasons.length === 0 && finalMatchPercentage === 0) {
-    reasons.push('No significant cultural alignment found with your preferences, or strong conflicts exist.');
+    reasons.push('No significant cultural alignment found with your preferences, or strong conflicts exist with your selected importance levels.');
   }
 
 
@@ -169,65 +172,56 @@ function computeMatch(companyTags, userPreferences) {
 // Simulates basic company analysis based on domain keywords
 function simulateCompanyAnalysis(domain) {
   const domainLower = domain.toLowerCase();
-  let tags = ['integrity', 'teamwork', 'communication']; // Always present for a 'positive' base
+  let tags = ['integrity', 'teamwork', 'communication', 'customer-centric']; // More base positive tags
   let summary = `Simulated general summary for ${domain}.`;
 
-  if (domainLower.includes('tech') || domainLower.includes('software') || domainLower.includes('it')) {
-    tags.push('innovation', 'agile-methodology', 'fast-paced');
-    summary = `${domain} is a technology-focused company, likely valuing innovation and agility.`;
+  if (domainLower.includes('tech') || domainLower.includes('software') || domainLower.includes('it') || domainLower.includes('digital')) {
+    tags.push('innovation', 'agile-methodology', 'fast-paced', 'employee-empowerment'); // Added empowerment
+    summary = `${domain} is a technology-focused company, likely valuing innovation, agility, and employee empowerment.`;
   }
   if (domainLower.includes('bank') || domainLower.includes('finance') || domainLower.includes('wealth')) {
-    tags.push('analytical', 'risk-management', 'structured-environment');
-    summary = `${domain} operates in the financial sector, emphasizing analytical rigor and risk management.`;
+    tags.push('analytical', 'risk-management', 'structured-environment', 'professional-growth'); // Added growth
+    summary = `${domain} operates in the financial sector, emphasizing analytical rigor, risk management, and professional development.`;
   }
   if (domainLower.includes('health') || domainLower.includes('hospital') || domainLower.includes('pharma')) {
-    tags.push('patient-centric', 'research-driven', 'ethical-considerations');
-    summary = `${domain} is a healthcare entity, focused on patient well-being and ethical practices.`;
+    tags.push('patient-centric', 'research-driven', 'ethical-considerations', 'learning-culture'); // Added learning
+    summary = `${domain} is a healthcare entity, focused on patient well-being, ethical practices, and continuous learning.`;
   }
   if (domainLower.includes('consulting') || domainLower.includes('advisory')) {
-    tags.push('client-focused', 'problem-solving', 'expert-driven');
-    summary = `${domain} is a consulting firm, valuing problem-solving and client relationships.`;
+    tags.push('client-focused', 'problem-solving', 'expert-driven', 'transparent-communication'); // Added communication
+    summary = `${domain} is a consulting firm, valuing problem-solving, client relationships, and clear communication.`;
   }
   if (domainLower.includes('startup') || domainLower.includes('ventures')) {
-    tags.push('entrepreneurial', 'rapid-growth', 'adaptive');
-    summary = `${domain} is a fast-growing startup, fostering an entrepreneurial and adaptive culture.`;
+    tags.push('entrepreneurial', 'rapid-growth', 'adaptive', 'innovation-voice'); // Added innovation voice
+    summary = `${domain} is a fast-growing startup, fostering an entrepreneurial, adaptive, and innovative culture.`;
   }
-  if (domainLower.includes('govt') || domainLower.includes('public')) {
-    tags.push('public-service', 'regulatory-compliance', 'stability');
-    summary = `${domain} is a government or public sector organization, emphasizing public service and compliance.`;
+  if (domainLower.includes('govt') || domainLower.includes('public') || domainLower.includes('state')) {
+    tags.push('public-service', 'regulatory-compliance', 'stability', 'work-life-balance'); // Added work-life balance
+    summary = `${domain} is a government or public sector organization, emphasizing public service, compliance, and work-life balance.`;
   }
-  if (domainLower.includes('retail') || domainLower.includes('ecommerce')) {
-    tags.push('customer-centric', 'fast-paced', 'dynamic-market');
-    summary = `${domain} is involved in retail/e-commerce, operating in a customer-centric and dynamic environment.`;
+  if (domainLower.includes('retail') || domainLower.includes('ecommerce') || domainLower.includes('fashion')) {
+    tags.push('customer-centric', 'fast-paced', 'dynamic-market', 'diverse-workforce'); // Added diversity
+    summary = `${domain} is involved in retail/e-commerce, operating in a customer-centric, dynamic, and diverse environment.`;
   }
-  if (domainLower.includes('manufacture') || domainLower.includes('industry')) {
-    tags.push('process-driven', 'efficiency', 'quality-control');
-    summary = `${domain} is a manufacturing company, focused on efficient processes and quality.`;
+  if (domainLower.includes('manufacture') || domainLower.includes('industry') || domainLower.includes('factory')) {
+    tags.push('process-driven', 'efficiency', 'quality-control', 'team-oriented'); // Added team-oriented
+    summary = `${domain} is a manufacturing company, focused on efficient processes, quality, and teamwork.`;
   }
 
   // Add some negative tags based on domain patterns (simulated)
-  // These are examples, feel free to adjust to your desired simulation
-  if (domainLower.includes('deloitte') || domainLower.includes('ey') || domainLower.includes('pwc') || domainLower.includes('kpmg') || domainLower.includes('mckinsey')) {
-    if (Math.random() < 0.7) tags.push('long-hours'); // High chance
-    if (Math.random() < 0.3) tags.push('top-down'); // Medium chance
+  if (domainLower.includes('bigcorp') || domainLower.includes('legacyco') || domainLower.includes('oldcompany')) {
+    if (Math.random() < 0.4) tags.push('top-down'); // 40% chance
+    if (Math.random() < 0.2) tags.push('micro-managed'); // 20% chance
   }
-  if (domainLower.includes('amazon')) {
-    if (Math.random() < 0.8) tags.push('long-hours');
-    if (Math.random() < 0.4) tags.push('micro-managed');
+  if (domainLower.includes('intenseco') || domainLower.includes('grindhub')) {
+    if (Math.random() < 0.7) tags.push('long-hours'); // 70% chance
   }
-  if (domainLower.includes('walmart') || domainLower.includes('oldco')) { // Imaginary old, traditional company
-    if (Math.random() < 0.5) tags.push('micro-managed');
-    if (Math.random() < 0.6) tags.push('top-down');
+  // Explicit bias triggers for testing
+  if (domainLower.includes('biasinc')) { 
+      tags.push('racial-bias', 'ethnic-bias');
   }
-  
-  // Simulated bias triggers
-  if (domainLower.includes('biasedorg') || domainLower.includes('oldboysclub')) { // Example imaginary domains for bias
-    tags.push('racial-bias', 'ethnic-bias', 'religious-bias', 'caste-bias');
-  }
-  // Add a small random chance for general bias if no specific keywords
-  if (Math.random() < 0.05 && !tags.some(t => ['racial-bias', 'ethnic-bias', 'religious-bias', 'caste-bias'].includes(t))) {
-    const biasTypes = ['racial-bias', 'ethnic-bias', 'religious-bias', 'caste-bias'];
-    tags.push(biasTypes[Math.floor(Math.random() * biasTypes.length)]);
+  if (domainLower.includes('exclusiveclub')) {
+      tags.push('religious-bias', 'caste-bias');
   }
 
   return { summary, tags: [...new Set(tags)] }; // Return unique tags
@@ -237,10 +231,10 @@ function simulateCompanyAnalysis(domain) {
 // Simulates more specific cultural analysis with insights and tags
 function getEnhancedCulturalAnalysis(domain) {
   const domainLower = domain.toLowerCase();
-  let tags = [];
+  let tags = ['professional-growth', 'transparent-communication']; // Default positive tags
   let culturalInsights = {
-    flexibility: 'Generally offers standard flexibility options.',
-    management: 'Management style varies by team.',
+    flexibility: 'Generally offers standard flexibility options and encourages professional growth.',
+    management: 'Management style varies by team, with an emphasis on transparent communication.',
     inclusion: 'Committed to diversity, but specific programs may vary.',
   };
 
@@ -248,22 +242,22 @@ function getEnhancedCulturalAnalysis(domain) {
   if (domainLower.includes('remote') || domainLower.includes('flex')) {
     tags.push('fully-remote-company', 'flexible-hours', 'work-life-balance');
     culturalInsights.flexibility = 'Strong emphasis on remote work and flexible hours, supporting work-life balance.';
-  } else if (Math.random() > 0.7) { // Random chance for some flexibility
+  } else if (Math.random() > 0.6) { // Increased chance for some flexibility
     tags.push('work-from-home-friendly');
     culturalInsights.flexibility = 'Offers some work-from-home options.';
   }
-  if (domainLower.includes('carers') || domainLower.includes('family')) {
+  if (domainLower.includes('carers') || domainLower.includes('familyfriendly')) {
     tags.push('flexibility-carers', 'paternity-leave');
     culturalInsights.flexibility += ' Particularly supportive of carers and parental leave.';
   }
 
   // Management
-  if (domainLower.includes('team') || domainLower.includes('collaborate')) {
-    tags.push('team-oriented', 'employee-empowerment');
-    culturalInsights.management = 'Fosters a collaborative and empowering environment with a focus on teamwork.';
-  } else if (Math.random() > 0.6) {
-    tags.push('transparent-communication', 'professional-growth');
-    culturalInsights.management = 'Encourages transparent communication and employee professional growth.';
+  if (domainLower.includes('empower') || domainLower.includes('autonomy')) {
+    tags.push('team-oriented', 'employee-empowerment', 'flat-hierarchy');
+    culturalInsights.management = 'Fosters a collaborative and empowering environment with a focus on teamwork and flatter hierarchies.';
+  } else if (Math.random() > 0.5) { // Increased chance for some positive management traits
+    tags.push('learning-culture');
+    culturalInsights.management = 'Encourages a strong learning culture and continuous skill development.';
   }
   if (domainLower.includes('innovation') || domainLower.includes('voice') || domainLower.includes('ideas')) {
     tags.push('innovation-voice');
@@ -272,32 +266,17 @@ function getEnhancedCulturalAnalysis(domain) {
 
   // Inclusion
   if (domainLower.includes('diverse') || domainLower.includes('inclusion') || domainLower.includes('equity')) {
-    tags.push('diverse-workforce', 'inclusive-environment', 'equal-opportunity');
-    culturalInsights.inclusion = 'Highly committed to diversity, equity, and inclusion across all aspects.';
-  } else if (Math.random() > 0.5) {
+    tags.push('diverse-workforce', 'inclusive-environment', 'equal-opportunity', 'women-leadership', 'lgbtqa-plus', 'racial-equity-focus', 'caste-equity-awareness');
+    culturalInsights.inclusion = 'Highly committed to diversity, equity, and inclusion across all aspects, with specific focus on representation.';
+  } else if (Math.random() > 0.4) { // Increased chance for some positive inclusion traits
     tags.push('inclusive-environment');
     culturalInsights.inclusion = 'Strives to maintain an inclusive environment for all employees.';
   }
 
   // New specific inclusion tags based on domain (simulated)
-  if (domainLower.includes('womenintech') || domainLower.includes('femlead')) {
-    tags.push('women-leadership');
-    culturalInsights.inclusion += ' Special focus on promoting women in leadership.';
-  }
-  if (domainLower.includes('lgbt') || domainLower.includes('pride')) {
-    tags.push('lgbtqa', 'lgbtqa-plus');
-    culturalInsights.inclusion += ' Actively supports the LGBTQIA+ community.';
-  }
   if (domainLower.includes('multifaith') || domainLower.includes('globalculture')) {
-    if (Math.random() < 0.5) { // Simulate some holidays being supported
-      tags.push('ramadan-friendly', 'diwali-friendly');
-    } else {
-      tags.push('onam-friendly', 'eid-friendly', 'christmas-friendly');
-    }
+    tags.push('ramadan-friendly', 'diwali-friendly', 'onam-friendly', 'eid-friendly', 'christmas-friendly');
     culturalInsights.inclusion += ' Recognizes and accommodates various religious and cultural observances.';
-  }
-  if (domainLower.includes('dalit') || domainLower.includes('race') || domainLower.includes('equity')) {
-    tags.push('racial-equity-focus', 'caste-equity-awareness');
   }
   if (domainLower.includes('community') || domainLower.includes('csr') || domainLower.includes('impact')) {
     tags.push('communities-respect');
