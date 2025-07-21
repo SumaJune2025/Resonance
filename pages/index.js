@@ -15,11 +15,6 @@ export default function Home() {
         setCurrentStep('analysis');
         return JSON.parse(savedPreferences);
       }
-      return {
-        flexibility: { workFromHome: '', flexibleHours: '', remoteLocation: '' },
-        management: { structure: '', decisionMaking: '', autonomy: '' },
-        inclusion: { womenLeadership: '', diversityRepresentation: '', inclusivePolicies: '' }
-      };
     }
     return {
       flexibility: { workFromHome: '', flexibleHours: '', remoteLocation: '' },
@@ -159,4 +154,35 @@ export default function Home() {
             type="text"
             placeholder="Enter company domain (e.g., acme.org)"
             value={domain}
-            onChange={(e) => setDomain(e.target.valu
+            onChange={(e) => setDomain(e.target.value)}
+            className="border p-2 w-full"
+          />
+          <button
+            onClick={handleEnrich}
+            disabled={loading}
+            className="bg-green-600 text-white px-4 py-2 rounded"
+          >
+            {loading ? 'Analyzing...' : 'Analyze'}
+          </button>
+          <button onClick={handleResetPreferences} className="ml-2 text-sm text-gray-500 underline">
+            Reset Preferences
+          </button>
+
+          {error && <p className="text-red-600">{error}</p>}
+
+          {company && (
+            <div className="mt-4 border p-4 rounded bg-gray-50">
+              <h3 className="text-md font-semibold mb-2">Results for {company.domain}</h3>
+              <p><strong>Match Score:</strong> {company.match.score}%</p>
+              <ul className="list-disc ml-5 mt-2">
+                {company.match.reasons.map((reason, idx) => (
+                  <li key={idx}>{reason}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
