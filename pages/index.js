@@ -107,22 +107,35 @@ export default function Home() {
   };
 
   return (
-    <div className="p-4 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">CultureMatch</h1>
+    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans px-4 py-8">
+      <div className="max-w-3xl mx-auto space-y-8">
+        <header className="text-center">
+          <h1 className="text-3xl font-bold text-blue-700">ValueSync</h1>
+          <p className="text-gray-600 mt-2">
+            Matching your values with the organization culture.
+          </p>
+        </header>
 
-      {currentStep === 'preferences' && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Step 1: Select Your Preferences</h2>
+        <section className="bg-white rounded shadow p-6">
+          <h2 className="text-xl font-semibold mb-4 text-gray-700">How it works</h2>
+          <ol className="list-decimal list-inside text-gray-600 space-y-2">
+            <li><strong>Step 1:</strong> Select your work preferences</li>
+            <li><strong>Step 2:</strong> Enter the domain of an organization you're interested in</li>
+            <li><strong>Step 3:</strong> Get a Match Score based on cultural alignment</li>
+          </ol>
+        </section>
 
-          {['flexibility', 'management', 'inclusion'].map((category) => (
-            <div key={category}>
-              <h3 className="font-semibold capitalize">{category}</h3>
-              {Object.keys(preferences[category]).map((field) => (
-                <div key={field} className="mb-2">
-                  <label className="block text-sm">
+        {currentStep === 'preferences' && (
+          <section className="bg-white rounded shadow p-6 space-y-4">
+            <h2 className="text-xl font-semibold text-gray-700">Step 1: Your Preferences</h2>
+            {['flexibility', 'management', 'inclusion'].map((category) => (
+              <div key={category}>
+                <h3 className="font-semibold capitalize text-gray-700 mb-1">{category}</h3>
+                {Object.keys(preferences[category]).map((field) => (
+                  <label key={field} className="block text-sm text-gray-600 mb-2">
                     {field.replace(/([A-Z])/g, ' $1')}:
                     <select
-                      className="ml-2 border p-1"
+                      className="ml-2 border rounded p-1"
                       value={preferences[category][field]}
                       onChange={(e) => handlePreferenceChange(category, field, e.target.value)}
                     >
@@ -133,56 +146,60 @@ export default function Home() {
                       <option value="very-important">Very Important</option>
                     </select>
                   </label>
-                </div>
-              ))}
-            </div>
-          ))}
-
-          <button
-            onClick={handleSavePreferencesAndContinue}
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-          >
-            Continue
-          </button>
-        </div>
-      )}
-
-      {currentStep === 'analysis' && (
-        <div className="space-y-4 mt-4">
-          <h2 className="text-lg font-semibold">Step 2: Analyze Company</h2>
-          <input
-            type="text"
-            placeholder="Enter company domain (e.g., acme.org)"
-            value={domain}
-            onChange={(e) => setDomain(e.target.value)}
-            className="border p-2 w-full"
-          />
-          <button
-            onClick={handleEnrich}
-            disabled={loading}
-            className="bg-green-600 text-white px-4 py-2 rounded"
-          >
-            {loading ? 'Analyzing...' : 'Analyze'}
-          </button>
-          <button onClick={handleResetPreferences} className="ml-2 text-sm text-gray-500 underline">
-            Reset Preferences
-          </button>
-
-          {error && <p className="text-red-600">{error}</p>}
-
-          {company && (
-            <div className="mt-4 border p-4 rounded bg-gray-50">
-              <h3 className="text-md font-semibold mb-2">Results for {company.domain}</h3>
-              <p><strong>Match Score:</strong> {company.match.score}%</p>
-              <ul className="list-disc ml-5 mt-2">
-                {company.match.reasons.map((reason, idx) => (
-                  <li key={idx}>{reason}</li>
                 ))}
-              </ul>
+              </div>
+            ))}
+            <button
+              onClick={handleSavePreferencesAndContinue}
+              className="bg-blue-600 text-white px-4 py-2 rounded"
+            >
+              Continue
+            </button>
+          </section>
+        )}
+
+        {currentStep === 'analysis' && (
+          <section className="bg-white rounded shadow p-6 space-y-4">
+            <h2 className="text-xl font-semibold text-gray-700">Step 2: Analyze an Organization</h2>
+            <input
+              type="text"
+              placeholder="e.g., acme.org"
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+              className="w-full border p-2 rounded"
+            />
+            <div className="flex space-x-4">
+              <button
+                onClick={handleEnrich}
+                disabled={loading}
+                className="bg-green-600 text-white px-4 py-2 rounded"
+              >
+                {loading ? 'Analyzing...' : 'Get Match Score'}
+              </button>
+              <button
+                onClick={handleResetPreferences}
+                className="text-sm text-gray-500 underline"
+              >
+                Reset Preferences
+              </button>
             </div>
-          )}
-        </div>
-      )}
+
+            {error && <p className="text-red-600">{error}</p>}
+
+            {company && (
+              <div className="mt-4 border p-4 rounded bg-gray-100">
+                <h3 className="text-md font-semibold mb-2 text-gray-700">Results for {company.domain}</h3>
+                <p className="mb-2"><strong>Match Score:</strong> {company.match.score}%</p>
+                <ul className="list-disc ml-5 text-gray-600">
+                  {company.match.reasons.map((reason, idx) => (
+                    <li key={idx}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        )}
+      </div>
     </div>
   );
 }
