@@ -93,6 +93,9 @@ function computeMatch(companyTags, userPreferences) {
     }
   });
 
+  // Log score after positives for debugging
+  console.log('Score (after positives, before negatives):', score);
+
   // 3. Define negative tags and their associated fixed penalty points
   const negativeTagPenalties = {
     'micro-managed': { category: ['management', 'flexibility'], penaltyPoints: 1 }, 
@@ -110,7 +113,7 @@ function computeMatch(companyTags, userPreferences) {
       const { category, penaltyPoints } = negativeTagPenalties[tag];
       let shouldPenalize = false;
 
-      // Check if user has *any* preference in the relevant categories for this negative tag
+      // Check if user has *any* preference (score > 0) in the relevant categories for this negative tag
       if (Array.isArray(category)) {
         shouldPenalize = category.some(cat => preferenceScoreMap[userPreferences[cat] || 'not-important'] > 0);
       } else { 
@@ -135,15 +138,23 @@ function computeMatch(companyTags, userPreferences) {
   console.log('Company Tags:', companyTags);
   console.log('User Preferences:', userPreferences);
   console.log('Max Possible Score (Denominator, sum of user preference levels):', maxPossibleScoreForPositiveTags);
-  console.log('Score (after positives and negatives, before final clamping):', score);
+  console.log('Score (after all calculations, before final clamping):', score);
+  
   // 6. Calculate percentage match
   let matchPercentage = 0;
   if (maxPossibleScoreForPositiveTags > 0) {
       matchPercentage = Math.round((score / maxPossibleScoreForPositiveTags) * 100);
   } else {
       // If user selected "not-important" for all categories, then the max possible score is 0.
-      // In this case, match is 0% as no preferences were given to match against.
-      matchPercentage = 0; 
+      // In this case, if any score accumulated (e.g., from general tags), we can still show a small percentage
+      // normalized against an arbitrary base (e.g., if there's 1 point, it's 1/5 = 20%).
+      // This ensures not 0% even if no specific preferences are set but good tags exist.
+      if (score > 0) {
+          matchPercentage = Math.round((score / 5) * 100); // Normalize against a small arbitrary max (e.g., 5 points)
+          reasons.unshift("General positive cultural aspects found, though specific preferences were not set, contributing to a basic score.");
+      } else {
+          matchPercentage = 0; 
+      }
   }
 
   // Final sanity check for percentage to be between 0 and 100
