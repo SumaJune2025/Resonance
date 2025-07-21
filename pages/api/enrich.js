@@ -17,8 +17,8 @@ export default async function handler(req, res) {
     // Simulate enhanced cultural analysis (more specific insights and tags)
     const culturalInsights = getEnhancedCulturalAnalysis(cleanDomain);
 
-    // Combine all company tags from both simulations
-    const allCompanyTags = [...new Set([...summary.tags, ...culturalInsights.tags])]; // Ensure unique tags
+    // Combine all company tags from both simulations, ensuring uniqueness
+    const allCompanyTags = [...new Set([...summary.tags, ...culturalInsights.tags])]; 
 
     // Compute the match score based on combined tags and user preferences
     const match = computeMatch(allCompanyTags, preferences);
@@ -39,7 +39,7 @@ export default async function handler(req, res) {
 function computeMatch(companyTags, userPreferences) {
   let score = 0;
   let reasons = [];
-  let maxPossibleScoreForPositiveTags = 0; // Denominator for normalization
+  let maxPossibleScoreForPositiveTags = 0; 
 
   // Define preferences to iterate through
   const preferenceCategories = ['flexibility', 'management', 'inclusion'];
@@ -62,14 +62,20 @@ function computeMatch(companyTags, userPreferences) {
   // Define general positive tags that add a small bonus regardless of specific category importance
   const generalPositiveTags = ['integrity', 'teamwork', 'communication', 'customer-centric'];
 
-  // 1. Calculate max possible score based on *user's selected importance*
-  // This is the ideal score if the company perfectly matched the user's *active* preferences.
+  // 1. Calculate max possible score based on *user's selected importance* and *number of potential matching tags*
   preferenceCategories.forEach(category => {
     const userPrefScore = preferenceScoreMap[userPreferences[category] || 'not-important'];
     if (userPrefScore > 0) {
-      maxPossibleScoreForPositiveTags += userPrefScore;
+      // Max possible score for this category is user's preference importance multiplied by the number of tags in that category
+      maxPossibleScoreForPositiveTags += userPrefScore * positiveTagMap[category].length;
     }
   });
+
+  // Add a base for general positive tags to the max possible score, if any preference is selected
+  if (maxPossibleScoreForPositiveTags > 0) {
+      maxPossibleScoreForPositiveTags += generalPositiveTags.length * 0.5; // Each general tag can add 0.5
+  }
+
 
   // 2. Factor in positive tags
   companyTags.forEach(tag => {
@@ -77,8 +83,8 @@ function computeMatch(companyTags, userPreferences) {
     for (const category of preferenceCategories) {
       if (positiveTagMap[category].includes(tag)) {
         const userPrefScore = preferenceScoreMap[userPreferences[category] || 'not-important'];
-        if (userPrefScore > 0) { // Only add score if user cares about this preference
-          score += userPrefScore;
+        if (userPrefScore > 0) { 
+          score += userPrefScore; // Add user's preference score for each matching tag
           reasons.push(`Positive match: ${tag.replace(/-/g, ' ')} aligns with your ${category} preference.`);
         }
         tagMatchedToCategory = true;
@@ -87,8 +93,8 @@ function computeMatch(companyTags, userPreferences) {
     }
     // Add small bonus for general positive tags if user has *any* preferences
     if (!tagMatchedToCategory && generalPositiveTags.includes(tag)) {
-        if (maxPossibleScoreForPositiveTags > 0) { // Only if user has *some* preferences
-            score += 0.5; // Small bonus for general positive traits
+        if (maxPossibleScoreForPositiveTags > 0) { 
+            score += 0.5; 
             reasons.push(`General positive attribute: ${tag.replace(/-/g, ' ')}.`);
         }
     }
@@ -96,13 +102,13 @@ function computeMatch(companyTags, userPreferences) {
 
   // 3. Define negative tags and their associated penalties (scaled by preference importance)
   const negativeTagPenalties = {
-    'micro-managed': { category: ['management', 'flexibility'], penaltyFactor: 0.75 }, // Further reduced
-    'long-hours': { category: ['flexibility'], penaltyFactor: 1 }, // Further reduced
-    'top-down': { category: ['management'], penaltyFactor: 0.75 }, // Further reduced
-    'racial-bias': { category: ['inclusion'], penaltyFactor: 2 }, // Further reduced
-    'ethnic-bias': { category: ['inclusion'], penaltyFactor: 2 },
-    'religious-bias': { category: ['inclusion'], penaltyFactor: 2 },
-    'caste-bias': { category: ['inclusion'], penaltyFactor: 2 },
+    'micro-managed': { category: ['management', 'flexibility'], penaltyFactor: 0.5 }, // Further reduced
+    'long-hours': { category: ['flexibility'], penaltyFactor: 0.75 }, // Further reduced
+    'top-down': { category: ['management'], penaltyFactor: 0.5 }, // Further reduced
+    'racial-bias': { category: ['inclusion'], penaltyFactor: 1.5 }, // Further reduced
+    'ethnic-bias': { category: ['inclusion'], penaltyFactor: 1.5 },
+    'religious-bias': { category: ['inclusion'], penaltyFactor: 1.5 },
+    'caste-bias': { category: ['inclusion'], penaltyFactor: 1.5 },
   };
 
   // 4. Factor in negative tags (penalties)
@@ -116,17 +122,15 @@ function computeMatch(companyTags, userPreferences) {
         category.forEach(cat => {
           relevantUserPrefScore += preferenceScoreMap[userPreferences[cat] || 'not-important'];
         });
-      } else { // Single category
+      } else { 
         relevantUserPrefScore = preferenceScoreMap[userPreferences[category] || 'not-important'];
       }
 
-      // Only penalize if user cares about the affected categories (relevantUserPrefScore > 0)
       if (relevantUserPrefScore > 0) { 
         const penalty = relevantUserPrefScore * penaltyFactor;
         score -= penalty;
         reasons.push(`Critical concern: Presence of ${tag.replace(/-/g, ' ')} which conflicts with your preferences.`);
       } else {
-          // Still add a note even if not directly penalized (user didn't set preference for it strongly)
           reasons.push(`Note: Potential ${tag.replace(/-/g, ' ')} issues were identified.`);
       }
     }
@@ -140,22 +144,52 @@ function computeMatch(companyTags, userPreferences) {
   let matchPercentage = 0;
   if (maxPossibleScoreForPositiveTags > 0) {
       matchPercentage = Math.round((score / maxPossibleScoreForPositiveTags) * 100);
-  } else if (score > 0) {
-      // Edge case: User has no preferences selected (maxPossibleScoreForPositiveTags is 0),
-      // but some general positive tags accumulated a small score (e.g., from 0.5 bonuses).
-      // In this scenario, it's ambiguous. If no preferences are set, a 0% match is generally correct.
-      // However, if we want to reflect *any* positive aspect, we need a base.
-      // Let's set a small arbitrary base if there's a score but no defined preference max.
-      matchPercentage = Math.round((score / 5) * 100); // Normalize against a small arbitrary max (e.g., 5 points)
-      reasons.unshift("General positive cultural aspects found, though specific preferences were not set.");
+  } else {
+      // If no preferences selected (maxPossibleScoreForPositiveTags is 0), then 0% match
+      // unless some general positive tags accumulated score (which we should ignore for % calculation
+      // if there's no defined 'max' from preferences).
+      matchPercentage = 0; 
   }
 
   // Final sanity check for percentage to be between 0 and 100
   const finalMatchPercentage = Math.min(100, Math.max(0, matchPercentage));
 
+  // --- Debugging Logs ---
+  console.log('--- ComputeMatch Debugging ---');
+  console.log('Company Tags:', companyTags);
+  console.log('User Preferences:', userPreferences);
+  console.log('Max Possible Score (Denominator):', maxPossibleScoreForPositiveTags);
+  console.log('Score (after positives, before negatives):', score); // This will be the score after positive accumulation
+  // Re-calculate score after positives to log it accurately before negatives apply
+  let debugScoreAfterPositives = 0;
+  companyTags.forEach(tag => {
+    let tagMatchedToCategory = false;
+    for (const category of preferenceCategories) {
+      if (positiveTagMap[category].includes(tag)) {
+        const userPrefScore = preferenceScoreMap[userPreferences[category] || 'not-important'];
+        if (userPrefScore > 0) { 
+          debugScoreAfterPositives += userPrefScore;
+        }
+        tagMatchedToCategory = true;
+        break; 
+      }
+    }
+    if (!tagMatchedToCategory && generalPositiveTags.includes(tag)) {
+        if (maxPossibleScoreForPositiveTags > 0) { 
+            debugScoreAfterPositives += 0.5; 
+        }
+    }
+  });
+  console.log('Score accumulated from POSITIVE tags only:', debugScoreAfterPositives);
+  console.log('Score (after all calculations, before final clamping):', score);
+  console.log('Final Match Percentage:', finalMatchPercentage);
+  console.log('Reasons:', reasons);
+  console.log('------------------------------');
+
+
   // 7. Add a general concluding reason if no specific reasons were added
   if (reasons.length === 0 && finalMatchPercentage > 0) {
-    reasons.push('The company shows general positive cultural aspects, but no strong alignment with highly specified preferences.');
+    reasons.push('The company shows general positive cultural aspects that may align with your overall preferences, but no strong specific matches were highlighted.');
   } else if (reasons.length === 0 && finalMatchPercentage === 0) {
     reasons.push('No significant cultural alignment found with your preferences, or strong conflicts exist given your selected importance levels.');
   }
@@ -163,7 +197,7 @@ function computeMatch(companyTags, userPreferences) {
 
   return {
     score: finalMatchPercentage,
-    reasons: reasons.length > 0 ? reasons : ["No specific cultural alignment could be determined."],
+    reasons: reasons.length > 0 ? reasons : ["No specific cultural alignment could be determined based on your preferences."],
   };
 }
 
@@ -212,7 +246,7 @@ function simulateCompanyAnalysis(domain) {
     if (Math.random() < 0.4) tags.push('top-down'); 
     if (Math.random() < 0.2) tags.push('micro-managed'); 
   }
-  if (domainLower.includes('intenseco') || domainLower.includes('grindhub') || domainLower.includes('consultingfirm')) { // Added general consultingfirm to trigger long-hours
+  if (domainLower.includes('intenseco') || domainLower.includes('grindhub') || domainLower.includes('consultingfirm')) { 
     if (Math.random() < 0.7) tags.push('long-hours'); 
   }
   // Explicit bias triggers for testing (you can use these as test domains)
@@ -230,7 +264,7 @@ function simulateCompanyAnalysis(domain) {
 function getEnhancedCulturalAnalysis(domain) {
   const domainLower = domain.toLowerCase();
   // Ensure a good set of positive default tags
-  let tags = ['professional-growth', 'transparent-communication', 'inclusive-environment', 'employee-empowerment']; 
+  let tags = ['professional-growth', 'transparent-communication', 'inclusive-environment', 'employee-empowerment', 'work-life-balance']; 
   let culturalInsights = {
     flexibility: 'Generally offers standard flexibility options and encourages professional growth.',
     management: 'Management style varies by team, with an emphasis on transparent communication and employee empowerment.',
