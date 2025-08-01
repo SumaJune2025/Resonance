@@ -1,33 +1,59 @@
 import { JSDOM } from 'jsdom';
 import axios from 'axios';
 
-export default async function handler(req, res) {
-  const { domain, preferences } = req.method === 'POST' ? req.body : req.query;
-
-  if (!domain) {
-    return res.status(400).json({ error: 'Missing domain parameter' });
-  }
-
+// A simple web scraper to find keywords on a company's "About Us" page.
+// This function fetches the HTML of a company's "about" page and extracts keywords.
+// NOTE: This is a basic implementation and might fail if the page structure is different.
+async function webScrapeAnalysis(domain) {
+  const url = `https://${domain}/about`;
+  const tags = new Set();
+  
   try {
-    const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
-    const summary = simulateCompanyAnalysis(cleanDomain);
-    const culturalInsights = getEnhancedCulturalAnalysis(cleanDomain);
-    const allCompanyTags = [...summary.tags, ...culturalInsights.tags];
-    const match = computeMatch(allCompanyTags, preferences);
+    const { data: html } = await axios.get(url, { timeout: 5000 });
+    const dom = new JSDOM(html);
+    const pageText = dom.window.document.body.textContent.toLowerCase();
+    
+    // Check for keywords and add relevant tags
+    if (pageText.includes('remote-friendly') || pageText.includes('work from home') || pageText.includes('flexible hours')) {
+      tags.add('flexibility');
+      tags.add('work-from-home-friendly');
+      tags.add('remote-friendly');
+      tags.add('flexible-hours');
+    }
+    if (pageText.includes('work-life balance')) {
+      tags.add('flexibility');
+      tags.add('work-life-balance');
+    }
+    if (pageText.includes('diversity') || pageText.includes('inclusion') || pageText.includes('equal opportunity')) {
+      tags.add('inclusion');
+      tags.add('diverse-workforce');
+      tags.add('inclusive-environment');
+      tags.add('equal-opportunity');
+    }
+    if (pageText.includes('learning culture') || pageText.includes('professional growth') || pageText.includes('employee empowerment')) {
+      tags.add('management');
+      tags.add('learning-culture');
+      tags.add('professional-growth');
+      tags.add('employee-empowerment');
+    }
+    if (pageText.includes('innovation') || pageText.includes('transparent communication') || pageText.includes('flat hierarchy')) {
+      tags.add('management');
+      tags.add('innovation-voice');
+      tags.add('transparent-communication');
+      tags.add('flat-hierarchy');
+    }
 
-    return res.status(200).json({
-      domain: cleanDomain,
-      summary,
-      culturalInsights,
-      match
-    });
+    // You can add more keywords and tags here as needed
+    
+    return { tags: Array.from(tags) };
+
   } catch (error) {
-    console.error('Error in enrich API:', error);
-    return res.status(500).json({ error: 'Internal error while enriching company data' });
+    console.error(`Failed to scrape ${url}:`, error.message);
+    return { tags: [] };
   }
 }
 
-// Defensive match score function
+// Defensive match score function (copied from your original code)
 function computeMatch(companyTags, userPreferences) {
   let score = 0;
   let reasons = [];
@@ -148,4 +174,31 @@ function computeMatch(companyTags, userPreferences) {
   };
 }
 
-// The simulateCompanyAnalysis() and getEnhancedCulturalAnalysis() functions stay unchanged from your latest version.
+
+export default async function handler(req, res) {
+  const { domain, preferences } = req.method === 'POST' ? req.body : req.query;
+
+  if (!domain) {
+    return res.status(400).json({ error: 'Missing domain parameter' });
+  }
+
+  try {
+    const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+    
+    // Get the cultural insights from the web scraping function
+    const culturalInsights = await webScrapeAnalysis(cleanDomain);
+    
+    // Compute the match score using the tags found
+    const match = computeMatch(culturalInsights.tags, preferences);
+
+    return res.status(200).json({
+      domain: cleanDomain,
+      summary: { tags: culturalInsights.tags },
+      culturalInsights,
+      match
+    });
+  } catch (error) {
+    console.error('Error in enrich API:', error);
+    return res.status(500).json({ error: 'Internal error while enriching company data' });
+  }
+}
